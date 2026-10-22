@@ -1,6 +1,6 @@
 // One class record. class/?id=c00 lists the class's pages as links, grouped as Class Handout, Class Summary and
 // Homework; each handout, the summary and the class words open as their own page (class/?id=c00&res=…).
-// Nothing is embedded in the list (Lucy, 2026-10-05/07: dated class pages as links).
+// Nothing is embedded in the list (dated class pages as links).
 (() => {
   const N = window.Zs, app = document.getElementById('app');
   const params = new URLSearchParams(location.search);
