@@ -87,12 +87,16 @@
     let pages = Promise.resolve();
     const box = app.querySelector('[data-res-pages]');
     if (box) {
-      pages = (async () => {
-        const urls = [];
-        for (const id of box.dataset.resPages.split(',')) urls.push(URL.createObjectURL(await N.loadMedia(id)));
-        box.innerHTML = urls.map((u, i) => `<img src="${u}" alt="Annotated page ${i + 1}">`).join('');
-        await Promise.all(Array.from(box.querySelectorAll('img')).map((img) => img.decode()));
-      })().catch((error) => { box.innerHTML = `<p class="zp-msg error">${N.esc((error && error.message) || 'The pages could not be loaded.')}</p>`; });
+      // All pages load at once; each appears in its place as soon as it arrives.
+      const ids = box.dataset.resPages.split(',');
+      box.innerHTML = ids.map((id, i) => `<div class="zp-res-page" data-page="${i}"><p class="zp-note">Loading page ${i + 1} of ${ids.length}…</p></div>`).join('');
+      pages = Promise.all(ids.map(async (id, i) => {
+        const slot = box.querySelector(`[data-page="${i}"]`);
+        try {
+          slot.innerHTML = `<img src="${URL.createObjectURL(await N.loadMedia(id))}" alt="Annotated page ${i + 1}">`;
+          await slot.querySelector('img').decode();
+        } catch (error) { slot.innerHTML = `<p class="zp-msg error">Page ${i + 1} could not be loaded. Reload the page to try again.</p>`; }
+      }));
     }
     document.getElementById('print').addEventListener('click', () => window.ZsPrint.print({ prepare: () => pages }).catch(() => window.print()));
     bindWords(c);
