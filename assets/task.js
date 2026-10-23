@@ -141,7 +141,7 @@
     const kind = t.group === 'mock' ? 'Full mock exam' : t.group === 'homework' ? 'Homework' : t.setId ? 'Practice by paper' : 'Practice by question type';
     app.innerHTML = `
       <p class="zp-back">${back}<a href="${N.root}extra-practice/">← Extra Practice</a></p>
-      <p class="zp-kicker">${N.esc(kind)} · ${N.esc(t.paperLabel)}${t.source ? ' · ' + N.esc(t.source) : ''}</p>
+      <p class="zp-kicker">${N.esc(kind)} · ${t.source && t.source.indexOf(t.paperLabel) === 0 ? N.esc(t.source) : N.esc(t.paperLabel) + (t.source ? ' · ' + N.esc(t.source) : '')}</p>
       <h1>${N.esc(t.label)}</h1>
       <div class="zp-taskbar"><span data-time></span><span data-progress></span><span class="grow"></span><span data-status role="status"></span><button class="zp-linkbtn" type="button" data-print="blank">Print questions / PDF</button>${S.submission ? '<button class="zp-linkbtn" type="button" data-print="review">Print my work / PDF</button>' : ''}</div>
       <div data-top></div>
