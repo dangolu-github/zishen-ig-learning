@@ -16,7 +16,7 @@
         <h1>Welcome, Zishen</h1>
         <p class="zp-lead">Your class records, exam practice, mistakes to review and your word log, all in one place.</p>
         <div class="zp-tiles">
-          <a class="zp-tile" href="extra-practice/"><b>${data.counts.practice}</b><strong>Extra Practice</strong><span>Practice by question type · full mock exams</span></a>
+          <a class="zp-tile" href="extra-practice/"><b>${data.counts.practice}</b><strong>Extra Practice</strong><span>Practice by question type · by paper · full mock exams</span></a>
           <a class="zp-tile" href="mistake-log/"><b>${data.counts.mistakesOpen}</b><strong>Mistake Log</strong><span>Mistakes to review</span></a>
           <a class="zp-tile" href="vocabulary/"><b>${data.counts.words}</b><strong>Vocabulary</strong><span>Word lists and my words</span></a>
         </div>

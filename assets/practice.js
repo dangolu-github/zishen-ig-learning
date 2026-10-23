@@ -1,4 +1,4 @@
-// Extra Practice: homework first, then practice by question type (paper → exercise), then full mock exams.
+// Extra Practice: homework first, then practice by question type (paper → exercise), then practice by paper (set → listening / reading / writing), then full mock exams.
 (() => {
   const N = window.Zs, app = document.getElementById('app');
   const cards = (list) => `<div class="zp-cards">${list.map(N.taskCard).join('')}</div>`;
@@ -8,7 +8,7 @@
       const data = await N.A.request('getCatalogue', {});
       N.previewNote(data.env);
       const of = (group) => data.tasks.filter((t) => t.group === group);
-      const homework = of('homework'), practice = of('practice'), mock = of('mock');
+      const homework = of('homework'), practice = of('practice').filter((t) => !t.setId), mock = of('mock'), inSets = of('practice').filter((t) => t.setId);
       const parts = data.parts || {};
       // One toggle per paper, one nested toggle per exercise (question type).
       const byPaper = Object.keys(data.papers).map((paper) => {
@@ -20,6 +20,14 @@
           .filter(([, , l]) => l.length);
         const inner = groups.map(([id, label, l]) => fold('practice:' + paper + ':' + id, label, l.length, cards(l))).join('');
         return fold('practice:' + paper, data.papers[paper], list.length, `<div class="zp-fold-body">${inner}</div>`);
+      }).join('');
+      // Practice by paper: one toggle per set, then Listening / Reading / Writing inside it.
+      const setParts = ['Listening', 'Reading', 'Writing'];
+      const paperSets = (data.practiceSets || []).map((ps) => [ps, inSets.filter((t) => t.setId === ps.id)]).filter(([, l]) => l.length);
+      const byPaperSets = paperSets.map(([ps, l]) => {
+        const inner = setParts.map((part) => [part, l.filter((t) => t.setPart === part)]).filter(([, x]) => x.length)
+          .map(([part, x]) => fold('set:' + ps.id + ':' + part.toLowerCase(), part, x.length, cards(x))).join('');
+        return fold('set:' + ps.id, ps.label, l.length, (ps.note ? `<p class="zp-note">${N.esc(ps.note)}</p>` : '') + `<div class="zp-fold-body">${inner}</div>`);
       }).join('');
       // Mocks: one toggle per set, Paper 1 then Paper 2.
       const order = (t) => ['RW', 'L'].indexOf(t.paper);
@@ -38,6 +46,9 @@
         <details class="zp-section zp-fold" data-fold="practice"><summary><h2>Practice by question type <small>${practice.length}</small></h2></summary>
           <p class="zp-note">Each set is one exercise from a past paper, so you can train one question type at a time.</p>
           ${byPaper || '<p class="zp-empty">Practice sets will appear here.</p>'}</details>
+        <details class="zp-section zp-fold" data-fold="sets"><summary><h2>Practice by paper <small>${paperSets.length}</small></h2></summary>
+          <p class="zp-note">One past paper per set, split into Listening, Reading and Writing, so you can choose the paper you need. Each exercise is answered on its own page.</p>
+          ${byPaperSets || '<p class="zp-empty">Practice sets by paper will appear here.</p>'}</details>
         <details class="zp-section zp-fold" data-fold="mocks"><summary><h2>Full mock exams <small>${sets.length}</small></h2></summary>
           <p class="zp-note">A complete exam: Paper 1 Reading and Writing (2 hours) and Paper 2 Listening (about 50 minutes). The timer shows how long you take; nothing closes when the exam time is up.</p>
           ${mocks || '<p class="zp-empty">Mock exams will appear here.</p>'}</details>`;

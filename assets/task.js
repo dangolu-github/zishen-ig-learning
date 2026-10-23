@@ -138,7 +138,7 @@
     const audio = t.blocks.filter((b) => b.type === 'audio');
     const rest = t.blocks.filter((b) => b.type !== 'audio');
     const back = t.classId ? `<a href="${N.root}class/?id=${encodeURIComponent(t.classId)}">← Class</a> · ` : '';
-    const kind = t.group === 'mock' ? 'Full mock exam' : t.group === 'homework' ? 'Homework' : 'Practice by question type';
+    const kind = t.group === 'mock' ? 'Full mock exam' : t.group === 'homework' ? 'Homework' : t.setId ? 'Practice by paper' : 'Practice by question type';
     app.innerHTML = `
       <p class="zp-back">${back}<a href="${N.root}extra-practice/">← Extra Practice</a></p>
       <p class="zp-kicker">${N.esc(kind)} · ${N.esc(t.paperLabel)}${t.source ? ' · ' + N.esc(t.source) : ''}</p>
