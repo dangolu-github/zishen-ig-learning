@@ -114,16 +114,23 @@ window.Zs = (() => {
   // Private audio and pictures arrive in parts after the access check and are joined here.
   function loadMedia(mediaId, onProgress) {
     if (mediaCache.has(mediaId)) return mediaCache.get(mediaId);
-    const job = (async () => {
-      const first = await A.request('getMedia', { mediaId, part: 0 }, 90000);
-      const parts = [b64ToBytes(first.data)];
-      if (onProgress) onProgress(1 / first.parts);
-      for (let i = 1; i < first.parts; i += 1) {
-        const next = await A.request('getMedia', { mediaId, part: i }, 90000);
-        parts.push(b64ToBytes(next.data));
-        if (onProgress) onProgress((i + 1) / first.parts);
+    // Google occasionally answers one part with something that is not the part; fetch and decode each part up to
+    // three times before giving up, so a single bad answer does not fail the whole recording (2026-10-24).
+    const fetchPart = async (part) => {
+      for (let attempt = 1; ; attempt += 1) {
+        try { const r = await A.request('getMedia', { mediaId, part }, 90000); return { r, bytes: b64ToBytes(r.data) }; }
+        catch (error) { if (attempt >= 3) throw error; await sleep(1500 * attempt); }
       }
-      return new Blob(parts, { type: first.mime });
+    };
+    const job = (async () => {
+      const first = await fetchPart(0);
+      const parts = [first.bytes];
+      if (onProgress) onProgress(1 / first.r.parts);
+      for (let i = 1; i < first.r.parts; i += 1) {
+        parts.push((await fetchPart(i)).bytes);
+        if (onProgress) onProgress((i + 1) / first.r.parts);
+      }
+      return new Blob(parts, { type: first.r.mime });
     })();
     mediaCache.set(mediaId, job);
     job.catch(() => mediaCache.delete(mediaId));
