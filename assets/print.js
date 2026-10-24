@@ -73,6 +73,15 @@
       state.added.push(node);
     });
 
+    // A mistake-log entry still to review gets a blank line to try it again on paper.
+    app.querySelectorAll('.zp-retry').forEach((retry) => {
+      const line = document.createElement('p');
+      line.className = 'zp-print-value zp-print-retry';
+      line.textContent = 'Try again:';
+      retry.insertAdjacentElement('afterend', line);
+      state.added.push(line);
+    });
+
     // The live counter is UI; its authored word-range guidance belongs on paper.
     app.querySelectorAll('.zp-count[data-min][data-max]').forEach((counter) => {
       const min = Number(counter.dataset.min), max = Number(counter.dataset.max);

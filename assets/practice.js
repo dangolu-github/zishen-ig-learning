@@ -40,14 +40,14 @@
       app.innerHTML = `
         <p class="zp-kicker">Cambridge IGCSE (9–1) English as a Second Language · 0993</p>
         <h1>Extra Practice</h1>
-        <p class="zp-lead">Real past-paper questions, answered on the page. Your answers save as you go, so you can continue on another device. Reading and listening answers are checked when you submit; your teacher marks the writing.</p>
+        <p class="zp-lead">Exam questions to answer on the page, or to print and do on paper (upload photos or a PDF to hand them in). Your answers save as you go, so you can continue on another device. Reading and listening answers are checked when you submit; your teacher marks the writing and paper work.</p>
         ${N.foldBar()}
         ${homework.length ? `<details class="zp-section zp-fold" data-fold="homework"><summary><h2>Homework <small>${homework.length}</small></h2></summary>${cards(homework)}</details>` : ''}
         <details class="zp-section zp-fold" data-fold="practice"><summary><h2>Practice by question type <small>${practice.length}</small></h2></summary>
-          <p class="zp-note">Each set is one exercise from a past paper, so you can train one question type at a time.</p>
+          <p class="zp-note">Each set is one exercise, so you can train one question type at a time.</p>
           ${byPaper || '<p class="zp-empty">Practice sets will appear here.</p>'}</details>
         <details class="zp-section zp-fold" data-fold="sets"><summary><h2>Practice by paper <small>${paperSets.length}</small></h2></summary>
-          <p class="zp-note">One past paper per set, split into Listening, Reading and Writing, so you can choose the paper you need. Each exercise is answered on its own page.</p>
+          <p class="zp-note">One full paper per set, split into Listening, Reading and Writing, so you can choose the paper you need. Each exercise is answered on its own page.</p>
           ${byPaperSets || '<p class="zp-empty">Practice sets by paper will appear here.</p>'}</details>
         <details class="zp-section zp-fold" data-fold="mocks"><summary><h2>Full mock exams <small>${sets.length}</small></h2></summary>
           <p class="zp-note">A complete exam: Paper 1 Reading and Writing (2 hours) and Paper 2 Listening (about 50 minutes). The timer shows how long you take; nothing closes when the exam time is up.</p>

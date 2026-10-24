@@ -1,6 +1,9 @@
 // Task player: one task answered fully on the page.
 // Typed answers save on this device at once and sync a moment later; uploaded files are sent as soon as they
 // are chosen. Submitting is deliberate and final; feedback appears only when released.
+// Print-first (2026-10-24): every task can be printed ("Print questions / PDF"), done on paper and handed in as a
+// PDF and/or photos in the "Hand in on paper" panel, or answered on this page. Either route is enough; uploading
+// only saves the pages, and "Submit" hands them in. The pages travel in one task-level envelope, `__paper`.
 // Blocks may name an outer section (`sec`, e.g. "Exercise 2") and an inner group (`fold`, e.g. "Questions 7(a)–(i)");
 // each becomes a remembered toggle. Recordings stay above the toggles so they keep playing while you answer.
 (() => {
@@ -8,7 +11,11 @@
   const taskId = new URLSearchParams(location.search).get('id') || '';
   const S = { task: null, control: null, env: '', responses: {}, files: {}, submission: null, saveId: '', submissionId: '', clientUpdatedAt: '', secondsUsed: 0,
     dirty: false, saving: false, syncedSeconds: -1, blocked: '', uploads: 0, batches: 0, uploadErrors: {}, submitting: false, timer: null, retryDelay: 4000, pageLoads: [] };
-  const maxFiles = () => (S.task && S.task.maxFiles) || 20;
+  const PAPER = '__paper';
+  const paperMode = () => Boolean(S.responses[PAPER] && S.responses[PAPER].mode === 'paper');
+  const paperAllowed = () => Boolean(S.task.paperUpload && S.task.paperUpload.paperMode);
+  const maxFiles = () => (S.task && ((S.task.paperUpload && S.task.paperUpload.maxFiles) || S.task.maxFiles)) || 20;
+  const paperFiles = () => ((S.responses[PAPER] || {}).files || []);
   const storeKey = () => `zs-ig-task:${S.env}:${taskId}:v${S.control.resetVersion}`;
   const items = () => S.task.blocks.filter((b) => b.type === 'q');
   const hasAnswer = (v) => v != null && (typeof v === 'string' ? v.trim() !== '' : Boolean(v.file) || Boolean(v.files && v.files.length));
@@ -50,6 +57,16 @@
       S.secondsUsed = Math.max(Number(local.secondsUsed) || 0, server ? server.secondsUsed || 0 : 0);
       if (localNewer) { S.files = Object.assign({}, local.files || {}, S.files); S.dirty = !server || local.clientUpdatedAt !== server.clientUpdatedAt; }
       if (!S.control.receiving) S.blocked = 'This task is closed. New answers are not being accepted.';
+      // A photo or PDF chosen earlier in a question's own upload box (e.g. the writing tasks) moves into the
+      // paper hand-in panel unchanged, so there is one place for paper pages.
+      if (!S.responses[PAPER] && paperAllowed()) {
+        const older = items().filter((q) => q.kind === 'file').flatMap((q) => ((S.responses[q.id] || {}).files || []));
+        if (older.length) {
+          S.responses[PAPER] = { mode: 'paper', files: [...new Set(older)] };
+          items().filter((q) => q.kind === 'file').forEach((q) => { delete S.responses[q.id]; });
+          S.dirty = true;
+        }
+      }
     }
     render();
     if (S.dirty && !readOnly()) schedule(800);
@@ -59,8 +76,8 @@
 
   const optionalTag = (q) => (q.optional ? '<span class="zp-optional">(optional)</span>' : '');
   const number = (q) => (q.n ? `<span class="zp-n">${N.esc(q.n)}</span>` : '');
-  const text = (id) => (typeof S.responses[id] === 'string' ? S.responses[id] : '');
-  const off = () => (readOnly() ? ' disabled' : '');
+  const text = (id) => (!paperMode() && typeof S.responses[id] === 'string' ? S.responses[id] : '');
+  const off = () => (readOnly() || paperMode() ? ' disabled' : '');
   const plain = ' autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"';
 
   function questionHtml(q) {
@@ -68,7 +85,7 @@
       // `inline`: letters in one row (picture options, matching with the statements listed above).
       return `<fieldset class="zp-q${q.inline ? ' zp-inline' : ''}" data-q="${q.id}"><legend>${number(q)}${q.prompt}</legend><div class="zp-opts">${q.options.map((option, i) => {
         const letter = 'ABCDEFGH'.charAt(i);
-        return `<label class="zp-opt"><input type="radio" name="q-${q.id}" value="${letter}"${S.responses[q.id] === letter ? ' checked' : ''}${off()}><span class="zp-letter">${letter}</span>${option ? `<span>${option}</span>` : ''}</label>`;
+        return `<label class="zp-opt"><input type="radio" name="q-${q.id}" value="${letter}"${!paperMode() && S.responses[q.id] === letter ? ' checked' : ''}${off()}><span class="zp-letter">${letter}</span>${option ? `<span>${option}</span>` : ''}</label>`;
       }).join('')}</div></fieldset>`;
     }
     if (q.kind === 'gap') {
@@ -105,7 +122,11 @@
     const groups = t => (t.requireAny || []);
     let html = '', i = 0;
     const isSecond = (b) => b.type === 'q' && groups(S.task).some((g) => g.indexOf(b.id) > 0);
-    const one = (b) => (isSecond(b) ? '<p class="zp-or">— OR —</p>' : '') + blockHtml(b);
+    // New work hands in paper pages through the one task-level panel; a question's own upload box shows only
+    // on work submitted that way before (its files stay part of that receipt).
+    // (Only when the backend offers the panel, so the site and the backend can be released in either order.)
+    const hidden = (b) => b.type === 'q' && b.kind === 'file' && Boolean(S.task.paperUpload) && !(S.submission && hasAnswer(S.responses[b.id]));
+    const one = (b) => (hidden(b) ? '' : (isSecond(b) ? '<p class="zp-or">— OR —</p>' : '') + blockHtml(b));
     const inner = (list) => {
       let out = '', k = 0;
       while (k < list.length) {
@@ -148,7 +169,8 @@
       ${audio.map(blockHtml).join('')}
       ${N.foldBar()}
       <div data-blocks>${blocksHtml(rest)}</div>
-      <div class="zp-submit" data-submit></div>`;
+      <div data-handin></div><div class="zp-submit" data-submit></div>`;
+    app.classList.toggle('zp-paper-mode', paperMode());
     // Native question tables keep their column relationships and use the standard answer controls.
     app.querySelectorAll('[data-answer-slot]').forEach((slot) => {
       const id = slot.dataset.answerSlot;
@@ -162,6 +184,7 @@
     });
     N.folds(app, 'task:' + t.id);
     renderTop();
+    renderHandin();
     renderSubmit();
     items().forEach((q) => {
       if (q.kind === 'long') updateCount(q.id);
@@ -178,13 +201,31 @@
     if (S.submission) {
       const r = S.submission.result || {};
       let html = `<p class="zp-banner" data-print-feedback>Submitted · ${N.esc(N.when(S.submission.submittedAt))}<small>${r.released ? (r.pending ? 'Some answers are still waiting for your teacher. Your other results are below.' : 'Your feedback is below.') : 'Your teacher will check this.'}</small></p>`;
+      if (paperMode()) {
+        const names = paperFiles().map((f, i) => `${i + 1}. ${(S.files[f] || {}).name || 'File'}`).join(' · ');
+        html += `<p class="zp-paper-receipt" data-print-feedback>Handed in on paper · ${paperFiles().length} file${paperFiles().length === 1 ? '' : 's'}: ${N.esc(names)}</p>`;
+      }
       if (r.released && (r.outOf !== '' || r.overall)) {
         html += `<div class="zp-result"><h2>Feedback</h2>${r.outOf !== '' ? `<p class="zp-score">${N.esc(r.score)} / ${N.esc(r.outOf)}${r.pending ? ' <small>so far</small>' : ''}</p>` : ''}${r.overall ? `<p class="zp-pre">${N.esc(r.overall)}</p>` : ''}</div>`;
       }
       if (S.submission.transcriptHtml) html += `<details class="zp-fold" data-fold="transcript" data-print-feedback><summary>Recording transcript</summary><div class="zp-fold-body zp-rich">${S.submission.transcriptHtml}</div></details>`;
       top.innerHTML = html;
     } else if (S.blocked) top.innerHTML = `<p class="zp-banner warn">${N.esc(S.blocked)}</p>`;
+    else if (paperAllowed()) top.innerHTML = `<p class="zp-handin-hint" data-no-print>Two ways to hand in: answer on this page, or press <b>Print questions / PDF</b>, write your answers on paper and upload photos or a PDF under <a href="#handin">Hand in on paper</a>. Either one is enough.</p>`;
     else top.innerHTML = '';
+  }
+
+  // The paper route: choose how to hand in, upload the pages in order, then press Submit. After submission the
+  // same panel is the receipt: the files that belong to this attempt, in order, each one can be opened.
+  function renderHandin() {
+    const area = app.querySelector('[data-handin]');
+    if (!S.task.paperUpload || (S.submission && !paperFiles().length) || (S.blocked && !paperFiles().length)) { area.innerHTML = ''; return; }
+    const fileBox = questionHtml({ id: PAPER, kind: 'file', prompt: 'Your paper pages, in order (photos or one PDF):', optional: false });
+    const choice = paperAllowed()
+      ? `<div class="zp-method" role="radiogroup" aria-label="How to hand in"><label><input type="radio" name="answer-method" value="online"${paperMode() ? '' : ' checked'}${readOnly() ? ' disabled' : ''}> Answer on this page</label><label><input type="radio" name="answer-method" value="paper"${paperMode() ? ' checked' : ''}${readOnly() ? ' disabled' : ''}> Hand in on paper</label></div><p class="zp-note">Print the questions with <b>Print questions / PDF</b>, write on the paper, then take a clear photo of each page (or scan them into one PDF). You do not need to type your answers again.</p>`
+      : '<p class="zp-note">You may attach photos or a PDF of your notes.</p>';
+    area.innerHTML = `<details class="zp-fold zp-handin" id="handin" data-no-print${paperMode() || S.submission ? ' open' : ''}><summary>${S.submission ? 'Submitted paper pages' : 'Hand in on paper'}</summary><div class="zp-fold-body">${S.submission ? '' : choice}${fileBox}${S.submission ? '<p class="zp-note">These files belong to this submitted attempt. Your teacher checks them and types your answers into the questions above.</p>' : '<p class="zp-note">Uploading saves the pages. Press <b>Submit answers</b> below to hand them in.</p>'}</div></details>`;
+    drawFiles(PAPER);
   }
 
   function renderSubmit() {
@@ -201,6 +242,17 @@
       const box = app.querySelector(`[data-q="${i.id}"]`);
       if (!box || !labels[i.verdict]) return;
       const extra = [];
+      if (Object.prototype.hasOwnProperty.call(i, 'original')) {
+        // Paper work: the teacher's faithful copy of what was written, with wrong words marked; the receipt is unchanged.
+        box.classList.add('zp-paper-reviewed');
+        const input = box.querySelector('textarea, input[type=text]');
+        if (input) { input.value = i.original; input.dataset.paperOriginal = '1'; }
+        // A letter answer from the paper is shown ticked, as it would be online (display only; the receipt is the pages).
+        const letter = String(i.original || '').trim().toUpperCase();
+        const option = /^[A-H]$/.test(letter) ? box.querySelector(`input[type=radio][value="${letter}"]`) : null;
+        if (option) option.checked = true;
+        extra.push(`<div class="zp-pre zp-original"><span class="label">Your answer (from your paper):</span> ${annotatedOriginal(i.original, i.spans) || '<i>(blank)</i>'}${i.uncertain ? '<small> [?] Your teacher could not read part of this.</small>' : ''}</div>`);
+      }
       if (i.correct) extra.push(`<p class="zp-pre"><span class="label">Correction:</span> ${N.esc(i.correct)}</p>`);
       if (i.comment) extra.push(`<p class="zp-pre"><span class="label">Comment:</span> ${N.esc(i.comment)}</p>`);
       if (i.key) extra.push(`<p><span class="label">Answer:</span> ${N.esc(i.key)}</p>`);
@@ -212,6 +264,16 @@
     });
   }
 
+  function annotatedOriginal(original, spans) {
+    const value = String(original || ''); let cursor = 0, html = '';
+    (spans || []).forEach((span) => {
+      if (!Number.isInteger(span.start) || !Number.isInteger(span.end) || span.start < cursor || span.end <= span.start || span.end > value.length) return;
+      html += N.esc(value.slice(cursor, span.start)) + `<span class="zp-error-span">${N.esc(value.slice(span.start, span.end))}</span><span class="zp-fix-span"> [${N.esc(span.replacement || '')}]</span>`;
+      cursor = span.end;
+    });
+    return html + N.esc(value.slice(cursor));
+  }
+
   // ---------- status bar and timing ----------
 
   function updateBar() {
@@ -221,7 +283,7 @@
     // Time is counted and kept, never enforced: no task locks when the time is up.
     const guide = t.minutes ? (t.strictTime ? ` · exam time ${t.minutes} min` : ` · suggested ${t.minutes} min`) : '';
     timeEl.innerHTML = `Time used <b>${N.clock(S.secondsUsed)}</b>${guide}`;
-    app.querySelector('[data-progress]').innerHTML = `<b>${answered()}</b> / ${units().length} answered`;
+    app.querySelector('[data-progress]').innerHTML = paperMode() ? `On paper · <b>${paperFiles().length}</b> file${paperFiles().length === 1 ? '' : 's'} attached` : `<b>${answered()}</b> / ${units().length} answered`;
   }
 
   function setStatus(message) {
@@ -302,11 +364,16 @@
     if (S.submitting) return;
     if (S.uploads || S.batches) { message.textContent = 'Wait for the upload to finish first.'; message.className = 'zp-msg error'; return; }
     if (Object.keys(S.uploadErrors).length) { message.textContent = 'Some selected files were not uploaded. Retry them or keep only the files listed.'; message.className = 'zp-msg error'; return; }
-    const missing = units().length - answered();
-    if (!items().some((q) => hasAnswer(S.responses[q.id]))) { message.textContent = 'There is nothing to submit yet.'; message.className = 'zp-msg error'; return; }
-    const question = missing
-      ? `${missing} answer${missing === 1 ? ' is' : 's are'} still empty. Submit anyway? You cannot change your answers afterwards.`
-      : 'Submit your answers? You cannot change them afterwards.';
+    const onPaper = paperMode();
+    const missing = onPaper ? 0 : units().length - answered();
+    if (onPaper ? !paperFiles().length : !items().some((q) => hasAnswer(S.responses[q.id]))) {
+      message.textContent = onPaper ? 'There is nothing to submit yet: upload your paper pages first.' : 'There is nothing to submit yet.'; message.className = 'zp-msg error'; return;
+    }
+    const question = onPaper
+      ? `Hand in these ${paperFiles().length} file${paperFiles().length === 1 ? '' : 's'}? Check that every page is there and in order. You cannot change them afterwards.`
+      : missing
+        ? `${missing} answer${missing === 1 ? ' is' : 's are'} still empty. Submit anyway? You cannot change your answers afterwards.`
+        : 'Submit your answers? You cannot change them afterwards.';
     if (!window.confirm(question)) return;
     S.submitting = true;
     button.disabled = true;
@@ -315,7 +382,8 @@
     if (!S.submissionId) { S.submissionId = N.newId('sub'); writeLocal(); }
     try {
       const submissionOrigin = await N.origin();
-      const sent = JSON.parse(JSON.stringify(S.responses));
+      // A paper hand-in is the pages only; answers typed before switching to paper stay in the draft, not the receipt.
+      const sent = JSON.parse(JSON.stringify(onPaper ? { [PAPER]: S.responses[PAPER] } : S.responses));
       const receipt = await A.post('submitTask', { taskId, saveId: S.saveId, submissionId: S.submissionId, resetVersion: S.control.resetVersion, responses: sent, secondsUsed: S.secondsUsed, submissionOrigin });
       for (const [id, value] of Object.entries(sent)) {
         if (value && value.files && JSON.stringify(value.files) !== JSON.stringify(((receipt.responses || {})[id] || {}).files || [])) throw new Error('The receipt did not confirm every attachment. Reload to check the submitted version before retrying.');
@@ -354,11 +422,21 @@
   app.addEventListener('change', (event) => {
     if (readOnly()) return;
     const radio = event.target.closest('input[type=radio]');
+    if (radio && radio.name === 'answer-method') {
+      if (S.batches) return;
+      S.responses[PAPER] = { mode: radio.value, files: paperFiles() };
+      changed(); render();
+      const panel = app.querySelector('[data-handin] details');
+      if (panel) panel.open = true;
+      return;
+    }
     if (radio && radio.name.indexOf('q-') === 0) { S.responses[radio.name.slice(2)] = radio.value; changed(); return; }
     const pick = event.target.closest('[data-pick]');
     if (pick && pick.files.length) uploadFiles(pick.dataset.pick, Array.from(pick.files), pick);
   });
   app.addEventListener('click', (event) => {
+    // "Hand in on paper" link in the top note: open the panel even when the address already ends in #handin.
+    if (event.target.closest('a[href="#handin"]')) { const panel = app.querySelector('#handin'); if (panel) panel.open = true; }
     if (event.target.closest('[data-send]')) submit();
     else if (event.target.closest('[data-print]')) {
       const button = event.target.closest('[data-print]'); button.disabled = true;
@@ -372,13 +450,14 @@
     const move = event.target.closest('[data-file-move]');
     if (move && !readOnly() && !S.batches) {
       const id = move.dataset.item, files = ((S.responses[id] || {}).files || []).slice(), from = files.indexOf(move.dataset.file), to = from + Number(move.dataset.fileMove);
-      if (from >= 0 && to >= 0 && to < files.length) { [files[from], files[to]] = [files[to], files[from]]; S.responses[id] = { files }; changed(); drawFiles(id); }
+      if (from >= 0 && to >= 0 && to < files.length) { [files[from], files[to]] = [files[to], files[from]]; S.responses[id] = Object.assign({}, S.responses[id], { files }); changed(); drawFiles(id); }
     }
     const remove = event.target.closest('[data-remove]');
     if (remove && !readOnly() && !S.batches) {
       const id = remove.dataset.item;
       const left = ((S.responses[id] || {}).files || []).filter((f) => f !== remove.dataset.remove);
-      if (left.length) S.responses[id] = { files: left }; else delete S.responses[id];
+      if (id === PAPER) S.responses[id] = Object.assign({}, S.responses[id], { files: left });
+      else if (left.length) S.responses[id] = { files: left }; else delete S.responses[id];
       drawFiles(id);
       changed();
     }
@@ -457,6 +536,17 @@
     const failSelection = (textValue) => { S.uploadErrors[id] = textValue; writeLocal(); drawFiles(id); input.value = ''; };
     if (bad) { failSelection(`${bad.name} is not a photo or PDF.`); return; }
     if ((((S.responses[id] || {}).files || []).length + files.length) > maxFiles()) { failSelection(`Choose no more than ${maxFiles()} files in total. No files from this selection were added.`); return; }
+    if (id === PAPER) {
+      // Choosing pages means handing in on paper: the on-page answers are set aside (kept in the draft, not sent).
+      S.responses[PAPER] = Object.assign({ files: [] }, S.responses[PAPER] || {}, { mode: paperAllowed() ? 'paper' : 'online' });
+      app.querySelectorAll('[name=answer-method]').forEach((r) => { r.checked = r.value === S.responses[PAPER].mode; });
+      if (paperMode()) app.querySelectorAll('[data-blocks] [data-input], [data-blocks] input[type=radio]').forEach((el) => {
+        el.disabled = true;
+        if (el.type === 'radio') el.checked = false;
+        else el.value = '';
+      });
+      app.classList.toggle('zp-paper-mode', paperMode());
+    }
     S.batches += 1; input.disabled = true;
     bar.hidden = false;
     const fill = bar.querySelector('i');
@@ -467,13 +557,13 @@
         const ready = await prepare(files[i]);
         if (ready.blob.size > 12 * 1024 * 1024) throw new Error(`${files[i].name} is larger than 12 MB. Take the photo again at a smaller size.`);
         const sent = await sendFile(id, ready.blob, ready.type, ready.name);
-        S.responses[id] = { files: ((S.responses[id] || {}).files || []).concat(sent.fileId) };
+        S.responses[id] = Object.assign({}, S.responses[id] || {}, { files: ((S.responses[id] || {}).files || []).concat(sent.fileId) });
         drawFiles(id);
         changed();
         fill.style.width = Math.round(((i + 1) / files.length) * 100) + '%';
       }
       if (S.uploadErrors[id]) drawFiles(id);
-      else say(`Uploaded ${files.length} file${files.length === 1 ? '' : 's'}. Check the list, then press Submit answers.`, 'success');
+      else say(`Uploaded ${files.length} file${files.length === 1 ? '' : 's'}. Check the list and the order, then press Submit answers.`, 'success');
     } catch (error) {
       S.uploadErrors[id] = (error && error.message) || 'The upload did not finish. Please try again.';
       writeLocal(); drawFiles(id); message.classList.add('error');

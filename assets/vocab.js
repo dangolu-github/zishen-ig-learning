@@ -1,6 +1,7 @@
 // Vocabulary: the teacher's word lists and the learner's own word log ("My words"), each a toggle.
 // Words the learner adds are saved to the course service (the teacher sees them); a checked word (Known) and any
 // phrase are left out when a list is copied or downloaded for a flashcard app. Check all / Uncheck all per list.
+// "Print / Save as PDF" prints every list that is showing as a compact word sheet (no buttons or forms).
 (() => {
   const N = window.Zs, A = N.A, app = document.getElementById('app');
   const S = { lists: [], myListId: '', query: '' };
@@ -29,7 +30,7 @@
     const mineHtml = mine.map(listHtml).join('');
     const teacherHtml = teacher.map(listHtml).join('');
     return `<details class="zp-section zp-fold" data-fold="mine"${S.query ? ' open' : ''}><summary><h2>My words <small>${mine.reduce((n, l) => n + l.words.length, 0)}</small></h2></summary>
-        <details class="zp-fold" data-fold="add"><summary>Add a word</summary><div class="zp-fold-body">
+        <details class="zp-fold" data-fold="add" data-no-print><summary>Add a word</summary><div class="zp-fold-body">
           <form class="zp-addword" data-addword>
             <label>Word or phrase<input name="word" maxlength="80" required autocomplete="off" autocapitalize="off" spellcheck="false"></label>
             <label>Part of speech <small>(optional)</small><input name="pos" maxlength="20" placeholder="n. / v. / adj. / phr." autocomplete="off"></label>
@@ -54,6 +55,7 @@
       <h1>Vocabulary</h1>
       <p class="zp-lead">Keep a log of new words with a meaning and an example sentence. Tick a word when you know it; copy the rest into your flashcard app.</p>
       <p class="zp-searchrow"><input class="zp-search" type="search" placeholder="Search words" value="${N.esc(S.query)}" data-search aria-label="Search words"></p>
+      <div class="zp-actions zp-printbar"><button class="zp-btn quiet" type="button" data-print-page>Print / Save as PDF</button></div>
       ${N.foldBar()}
       <div data-lists></div>`;
     redraw();
@@ -126,6 +128,8 @@
     setKnown([word], box.checked, list);
   });
   app.addEventListener('click', async (event) => {
+    const printButton = event.target.closest('[data-print-page]');
+    if (printButton) { printButton.disabled = true; window.ZsPrint.print({}).catch(() => window.print()).finally(() => { printButton.disabled = false; }); return; }
     const copy = event.target.closest('[data-copy]'), download = event.target.closest('[data-download]'), remove = event.target.closest('[data-remove]');
     const checkAll = event.target.closest('[data-checkall]'), uncheckAll = event.target.closest('[data-uncheckall]');
     if (checkAll || uncheckAll) {

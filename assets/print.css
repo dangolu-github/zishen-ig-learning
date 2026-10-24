@@ -104,3 +104,36 @@
   .zp-print-blank [data-print-feedback], .zp-print-blank .zp-paper-review,
   .zp-print-blank .zp-review, .zp-print-blank .zp-count { display: none !important; }
 }
+/* Print-first additions (2026-10-24): print-only lines, mistake-log retry space, paper hand-in receipt. */
+.zp-print-only { display: none; }
+@media print {
+  .zp-print-only { display: block !important; font-size: 9.5pt !important; margin: 0 0 3pt !important; }
+  .zp-print-retry { display: block !important; min-height: 16pt; margin: 2pt 0 0 !important; border-bottom: .5pt solid #888; font-size: 9pt !important; color: #444 !important; }
+  .zp-paper-receipt { display: block !important; margin: 0 0 4pt !important; padding: 0 !important; background: none !important; font-size: 9pt !important; }
+  /* The hand-in panel never prints; its empty wrapper alone pushed a blank last page onto a full mock (2026-10-24). */
+  [data-handin], .zp-handin, .zp-handin-hint { display: none !important; }
+  .zp-original { margin: 1.5pt 0 !important; }
+  .zp-error-span { color: #111 !important; text-decoration: underline wavy !important; }
+  .zp-fix-span { color: #111 !important; font-weight: 700 !important; }
+  .zp-mistake { break-inside: avoid; border-bottom: .4pt solid #ccc !important; }
+  .zp-mistake dl { margin: 1pt 0 !important; }
+  .zp-words { margin: 0 !important; padding: 0 !important; }
+  .zp-vocab-list { break-inside: auto; }
+  .zp-print-blank .zp-paper-receipt { display: none !important; }
+}
+/* Fewer near-empty last pages (2026-10-24, measured on all 111 local PDFs): two-column short-question tasks and
+   class summaries print a little denser, so a matching task or a summary no longer leaves one or two items alone
+   on a second page. Text stays at 9.7–9.8 pt. */
+@media print {
+  .zp-print-columns .zp-q { margin: 1.5pt 0 !important; padding: 1pt 0 !important; }
+  .zp-print-columns .zp-q legend { margin: 0 0 1pt !important; }
+  .zp-print-columns .zp-inline .zp-opts { gap: 0 6pt !important; }
+  .zp-print-columns .zp-inline .zp-opt { padding: 0 !important; margin: 0 !important; min-width: 0 !important; }
+  .zp-print-columns .zp-rich p { line-height: 1.22 !important; }
+  .zp-print-columns .zp-rich p, .zp-print-columns .zp-rich li { font-size: 9.7pt !important; }
+  .zp-summary { font-size: 9.8pt !important; }
+  .zp-summary table { font-size: 8.8pt !important; }
+  .zp-summary .zp-fold-body p, .zp-summary .zp-fold-body li { margin: 1pt 0 !important; line-height: 1.24 !important; }
+  .zp-summary .zp-sumfold { margin: 2pt 0 !important; }
+  .zp-summary table th, .zp-summary table td { padding: 1.5pt 3pt !important; }
+}

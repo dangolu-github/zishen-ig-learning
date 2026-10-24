@@ -1,5 +1,7 @@
 // Mistake Log: wrong answers from checked work and corrections the teacher adds, with retries.
 // One remembered toggle per skill; the status chips switch between entries to review and cleared ones.
+// "Print / Save as PDF" prints the list that is showing (every toggle opened), each entry with a blank
+// "Try again" line; an answer prints only if it is visible on the page (revealed or cleared).
 (() => {
   const N = window.Zs, A = N.A, app = document.getElementById('app');
   const S = { list: [], skills: [], show: 'open', open: {} };
@@ -45,6 +47,8 @@
       <h1>Mistake Log</h1>
       <p class="zp-lead">Questions you got wrong in checked work, and corrections your teacher adds. Try each one again before you look at the answer; when you get it right it moves to Cleared.</p>
       <div class="zp-chips" role="group" aria-label="Status">${chip(`To review (${open.length})`, S.show === 'open', 'data-show="open"')}${chip(`Cleared (${cleared.length})`, S.show === 'cleared', 'data-show="cleared"')}</div>
+      <p class="zp-print-only">${S.show === 'open' ? 'To review' : 'Cleared'} · ${shown.length} ${shown.length === 1 ? 'entry' : 'entries'}</p>
+      ${shown.length ? '<div class="zp-actions zp-printbar"><button class="zp-btn quiet" type="button" data-print-page>Print / Save as PDF</button></div>' : ''}
       ${bySkill.length ? N.foldBar() : ''}
       ${bySkill.length ? bySkill.map(([skill, l]) => `<details class="zp-section zp-fold" data-fold="${S.show}:${N.esc(skill)}"><summary><h2>${N.esc(skill)} <small>${l.length}</small></h2></summary>${l.map(card).join('')}</details>`).join('')
         : `<p class="zp-empty">${S.show === 'open' ? 'Nothing to review. Mistakes from checked work will appear here.' : 'Nothing cleared yet.'}</p>`}`;
@@ -66,6 +70,8 @@
   app.addEventListener('click', async (event) => {
     const show = event.target.closest('[data-show]');
     if (show) { S.show = show.dataset.show; render(); return; }
+    const printButton = event.target.closest('[data-print-page]');
+    if (printButton) { printButton.disabled = true; window.ZsPrint.print({}).catch(() => window.print()).finally(() => { printButton.disabled = false; }); return; }
     const reveal = event.target.closest('[data-reveal]');
     if (reveal) { S.open[reveal.dataset.reveal] = true; render(); return; }
     const check = event.target.closest('[data-check]'), self = event.target.closest('[data-self]');

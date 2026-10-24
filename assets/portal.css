@@ -392,3 +392,17 @@ details.zp-section[open] > summary { margin-bottom: 8px; }
 .zp-table-wide { border-collapse: collapse; width: 100%; font-size: 15px; }
 .zp-table-wide th, .zp-table-wide td { padding: 7px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
 .zp-table-wide thead th { background: #f7f9fc; font-size: 13px; color: var(--muted); }
+
+/* Print-first (2026-10-24): two ways to hand in — on this page, or on paper as photos / a PDF. */
+.zp-handin-hint { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); font-size: 14px; }
+.zp-handin { margin: 18px 0 0; }
+.zp-handin > summary { color: var(--accent); }
+.zp-method { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 4px 0 6px; font-weight: 700; }
+.zp-method label { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; }
+.zp-method input { width: 18px; height: 18px; }
+.zp-handin .zp-file { padding: 0; border: 0; background: none; }
+.zp-paper-receipt { margin: -6px 0 16px; padding: 10px 14px; border-radius: 10px; background: #f1f4f9; font-size: 14px; overflow-wrap: anywhere; }
+.zp-original { margin: 4px 0; }
+.zp-printbar { margin: 4px 0 8px; }
+.zp-files li > span:first-child { flex: 1 1 auto; }
+.zp-files li { justify-content: flex-start; flex-wrap: wrap; }
