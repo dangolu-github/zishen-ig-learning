@@ -1,5 +1,6 @@
 /* Compact paper layout; printing changes neither stored answers nor release gates. */
 .zp-print-value { display: none; }
+.zp-measure-lines > li { white-space: nowrap !important; font-size: var(--zp-measure-size, 12px) !important; }
 @media print {
   @page { size: A4; margin: 8mm 10mm; }
   html, body { background: #fff !important; color: #111 !important; }
@@ -41,7 +42,7 @@
   .zp-gap { display: block !important; }
   .zp-gap-line { line-height: 1.45 !important; }
   .zp-print-value { color: #111 !important; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .zp-print-guide { display: block !important; font-size: 8.5pt !important; }
+  .zp-print-guide { display: block !important; font-size: 8.5pt !important; break-before: avoid; }
   .zp-print-inline { display: inline !important; min-width: 90pt; border-bottom: .5pt solid #666; padding: 0 3pt; }
   .zp-print-inline.zp-print-empty { display: inline-block !important; width: 100pt; min-height: 12pt; }
   .zp-print-answer { display: block !important; margin: 3pt 0 !important; padding: 2pt 0 !important; height: auto !important; max-height: none !important; overflow: visible !important; break-inside: auto !important; }
@@ -63,6 +64,10 @@
   .zp-extra-task td .zp-q:last-child .zp-print-empty { border-bottom: 0 !important; }
 
   .zp-print-empty.zp-print-long-space { min-height: 52pt !important; border-bottom: .5pt solid #aaa; }
+  /* On a blank sheet a writing prompt, its space and its word guide stay on one page. */
+  .zp-print-blank .zp-q:has(.zp-print-long-space), .zp-print-blank .zp-q:has(.zp-print-guide) { break-inside: avoid !important; }
+  /* A task printed above its writing question (the mock articles and emails) stays with it. */
+  .zp-print-blank .zp-block:has(+ .zp-q .zp-print-long-space), .zp-print-blank .zp-block:has(+ .zp-q .zp-print-guide) { break-inside: avoid !important; break-after: avoid !important; }
   .zp-print-columns { columns: 2; column-gap: 6mm; column-rule: .4pt solid #ddd; }
   .zp-count, .zp-optional, .zp-or, .zp-note { font-size: 8.5pt !important; margin: 2pt 0 !important; }
   .zp-count:empty, .zp-msg:empty { display: none !important; }
@@ -78,11 +83,18 @@
   .zp-lines { padding-left: 25pt !important; margin: 3pt 0 5pt !important; }
   .zp-lines li { line-height: 1.35 !important; }
   .zp-lines li.zp-pstart { margin-top: 5pt !important; }
+  /* One paper line = one printed line: the passage shrinks to its widest line (print.js), never below 7pt. */
+  @supports (font-size: 1cqi) {
+    .zp-lines.zp-fit-lines { container-type: inline-size; }
+    .zp-lines.zp-fit-lines > li { white-space: nowrap !important; font-size: max(7pt, min(1em, calc(98cqi / var(--zp-line-em)))) !important; }
+  }
   table, .zp-table, .zp-wordtable { width: 100% !important; max-width: none !important; border-collapse: collapse !important; font-size: 9pt !important; overflow: visible !important; break-inside: auto !important; }
   thead, .zp-wordtable thead { display: table-header-group !important; }
   tbody { display: table-row-group !important; }
   tr, .zp-wordtable tr { display: table-row !important; break-inside: avoid; }
   th, td, .zp-table th, .zp-table td, .zp-rich th, .zp-rich td, .zp-wordtable th, .zp-wordtable td { display: table-cell !important; float: none !important; padding: 3pt 4pt !important; border-color: #aaa !important; }
+  /* A column is never narrower than its longest word, so words and numbers stay whole. */
+  th, td { overflow-wrap: break-word !important; word-break: normal !important; }
   .zp-wordtable .ck { display: none !important; }
   img, .zp-pages-body img, .zp-figure .zp-pages-body img { max-width: 100% !important; width: auto !important; max-height: 235mm; object-fit: contain; margin: 3pt auto !important; border: 0 !important; break-inside: avoid; }
   .zp-card, .zp-log a, .zp-word { padding: 4pt 0 !important; margin: 0 !important; border-radius: 0 !important; break-inside: avoid; }

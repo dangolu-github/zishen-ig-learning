@@ -8,12 +8,40 @@
   function prepare(options = {}) {
     if (state) return;
     const app = root();
-    state = { details: [], controls: [], added: [], classes: [], labels: [], blank: Boolean(options.blank) };
+    state = { details: [], controls: [], added: [], classes: [], labels: [], lineFits: [], blank: Boolean(options.blank) };
     document.body.classList.add('zp-printing');
     document.body.classList.toggle('zp-print-blank', state.blank);
     app.querySelectorAll('details').forEach((node) => {
       state.details.push([node, node.open]);
       node.open = true;
+    });
+
+    // Reading passages keep the paper's printed lines (one <li> per line). Record each passage's
+    // widest line in em; print.css then shrinks that passage so every paper line prints on one line.
+    // System fonts change letter spacing with size, so measure near the printed size: first at 12px,
+    // then at the size that width gives on A4 (about 685px of text beside the line numbers).
+    app.querySelectorAll('ol.zp-lines').forEach((list) => {
+      const lines = Array.from(list.children).filter((node) => node.tagName === 'LI');
+      if (!lines.length) return;
+      list.classList.add('zp-measure-lines');
+      const widestAt = (px) => {
+        list.style.setProperty('--zp-measure-size', px + 'px');
+        return Math.max(...lines.map((line) => {
+          const range = document.createRange();
+          range.selectNodeContents(line);
+          return range.getBoundingClientRect().width / px;
+        }));
+      };
+      let widest = widestAt(12);
+      if (widest > 0) widest = Math.max(widest, widestAt(Math.min(13.6, 685 / widest)));
+      list.classList.remove('zp-measure-lines');
+      list.style.removeProperty('--zp-measure-size');
+      // Above 72em even the 7pt floor would overflow A4; such a passage keeps wrapping.
+      if (widest > 0 && widest <= 72) {
+        list.style.setProperty('--zp-line-em', widest.toFixed(2));
+        list.classList.add('zp-fit-lines');
+        state.lineFits.push(list);
+      }
     });
 
     app.querySelectorAll('textarea[data-input], input[type="text"][data-input], .zp-q input[type="radio"], .zp-q input[type="checkbox"]').forEach((control) => {
@@ -87,7 +115,8 @@
     });
     const blocks = app.querySelector('[data-blocks]');
     const blockQuestions = blocks ? Array.from(blocks.querySelectorAll('.zp-q')) : [];
-    if (blocks && !blocks.querySelector('.zp-doc, .zp-pages, table, img') &&
+    // A passage with the paper's own lines needs the full page width, so it never goes into columns.
+    if (blocks && !blocks.querySelector('.zp-doc, .zp-pages, ol.zp-lines, table, img') &&
         blockQuestions.length >= 6 && blockQuestions.every(question => shortQuestions.has(question))) {
       blocks.classList.add('zp-print-columns');
       state.classes.push([blocks, 'zp-print-columns']);
@@ -103,6 +132,7 @@
     previous.added.forEach((node) => node.remove());
     previous.controls.forEach((node) => node.classList.remove('zp-print-control'));
     previous.classes.forEach(([node, name]) => node.classList.remove(name));
+    previous.lineFits.forEach((list) => { list.classList.remove('zp-fit-lines'); list.style.removeProperty('--zp-line-em'); });
     previous.details.forEach(([node, open]) => { node.open = open; });
     document.body.classList.remove('zp-printing', 'zp-print-blank');
     document.dispatchEvent(new CustomEvent('zs:print-restored'));
