@@ -110,6 +110,8 @@
   .zp-print-only { display: block !important; font-size: 9.5pt !important; margin: 0 0 3pt !important; }
   .zp-print-retry { display: block !important; min-height: 16pt; margin: 2pt 0 0 !important; border-bottom: .5pt solid #888; font-size: 9pt !important; color: #444 !important; }
   .zp-paper-receipt { display: block !important; margin: 0 0 4pt !important; padding: 0 !important; background: none !important; font-size: 9pt !important; }
+  /* A listening script prints only when the learner opened it (2026-10-25). */
+  details[data-print-if-open]:not([open]) { display: none !important; }
   /* The hand-in panel never prints; its empty wrapper alone pushed a blank last page onto a full mock (2026-10-24). */
   [data-handin], .zp-handin, .zp-handin-hint { display: none !important; }
   .zp-original { margin: 1.5pt 0 !important; }

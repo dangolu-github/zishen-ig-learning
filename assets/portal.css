@@ -320,6 +320,7 @@ details.zp-section[open] > summary { margin-bottom: 8px; }
 .zp-inline .zp-opt span:not(.zp-letter) { font-weight: 600; }
 .zp-rubric { margin: 6px 0 12px; font-weight: 600; }
 .zp-context { margin: 18px 0 4px; font-style: italic; color: var(--muted); }
+.zp-script { margin: 12px 0; }
 .zp-transcript h3 { margin: 18px 0 6px; font-size: 16px; }
 .zp-transcript p { margin: 6px 0; }
 /* Note-making answer lines sit under their heading like a printed notes page. */

@@ -13,7 +13,8 @@
     document.body.classList.toggle('zp-print-blank', state.blank);
     app.querySelectorAll('details').forEach((node) => {
       state.details.push([node, node.open]);
-      node.open = true;
+      // A listening script prints only if the learner opened it; closed, print.css leaves it out.
+      if (!node.matches('[data-print-if-open]')) node.open = true;
     });
 
     // Reading passages keep the paper's printed lines (one <li> per line). Record each passage's

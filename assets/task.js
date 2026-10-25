@@ -208,7 +208,8 @@
       if (r.released && (r.outOf !== '' || r.overall)) {
         html += `<div class="zp-result"><h2>Feedback</h2>${r.outOf !== '' ? `<p class="zp-score">${N.esc(r.score)} / ${N.esc(r.outOf)}${r.pending ? ' <small>so far</small>' : ''}</p>` : ''}${r.overall ? `<p class="zp-pre">${N.esc(r.overall)}</p>` : ''}</div>`;
       }
-      if (S.submission.transcriptHtml) html += `<details class="zp-fold" data-fold="transcript" data-print-feedback><summary>Recording transcript</summary><div class="zp-fold-body zp-rich">${S.submission.transcriptHtml}</div></details>`;
+      // Listening: the original script, closed on every visit; only its own toggle opens it (not Open all), and it prints only while open.
+      if (S.submission.transcriptHtml) html += `<details class="zp-fold zp-script" data-print-feedback data-print-if-open><summary>Listening script</summary><div class="zp-fold-body zp-rich">${S.submission.transcriptHtml}</div></details>`;
       top.innerHTML = html;
     } else if (S.blocked) top.innerHTML = `<p class="zp-banner warn">${N.esc(S.blocked)}</p>`;
     else if (paperAllowed()) top.innerHTML = `<p class="zp-handin-hint" data-no-print>Two ways to hand in: answer on this page, or press <b>Print questions / PDF</b>, write your answers on paper and upload photos or a PDF under <a href="#handin">Hand in on paper</a>. Either one is enough.</p>`;
