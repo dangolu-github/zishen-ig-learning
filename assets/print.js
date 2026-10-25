@@ -3,8 +3,6 @@
 (() => {
   let state = null;
   let printing = false;
-  // Only WebKit (Safari, every iPad/iPhone browser) knows Apple's system font keywords.
-  const webkit = Boolean(window.CSS && CSS.supports && CSS.supports('font', '-apple-system-body'));
   const root = () => document.getElementById('app') || document.querySelector('main') || document.body;
 
   function prepare(options = {}) {
@@ -127,9 +125,7 @@
     const blocks = app.querySelector('[data-blocks]');
     const blockQuestions = blocks ? Array.from(blocks.querySelectorAll('.zp-q')) : [];
     // A passage with the paper's own lines needs the full page width, so it never goes into columns.
-    // Safari and every iPad/iPhone browser (WebKit) print the column block as one column and then cut a
-    // line across the page break, so there each question prints whole in one column (2026-10-25).
-    if (!webkit && blocks && !blocks.querySelector('.zp-doc, .zp-pages, ol.zp-lines, table, img') &&
+    if (blocks && !blocks.querySelector('.zp-doc, .zp-pages, ol.zp-lines, table, img') &&
         blockQuestions.length >= 6 && blockQuestions.every(question => shortQuestions.has(question))) {
       blocks.classList.add('zp-print-columns');
       state.classes.push([blocks, 'zp-print-columns']);

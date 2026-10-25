@@ -137,3 +137,11 @@
   .zp-summary .zp-sumfold { margin: 2pt 0 !important; }
   .zp-summary table th, .zp-summary table td { padding: 1.5pt 3pt !important; }
 }
+/* Safari and every iPad/iPhone browser (WebKit) print a column block as a single column and cut a line in two
+   where it meets a page break. There the block keeps the denser type above but prints as one plain column, so
+   each question moves whole to the next page (2026-10-25; Chrome keeps its two columns). */
+@supports (font: -apple-system-body) {
+  @media print {
+    .zp-print-columns { columns: auto !important; column-rule: none !important; }
+  }
+}
