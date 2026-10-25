@@ -139,9 +139,19 @@
 }
 /* Safari and every iPad/iPhone browser (WebKit) print a column block as a single column and cut a line in two
    where it meets a page break. There the block keeps the denser type above but prints as one plain column, so
-   each question moves whole to the next page (2026-10-25; Chrome keeps its two columns). */
+   each question moves whole to the next page (2026-10-25; Chrome keeps its two columns). WebKit also cuts a
+   grid row at a page break, so the statement lists (A–H), clue questions, word cards and mistake details print
+   as ordinary lines there. */
 @supports (font: -apple-system-body) {
   @media print {
     .zp-print-columns { columns: auto !important; column-rule: none !important; }
+    .zp-statements li, .zp-cluebox .zp-clueqs li { display: block !important; padding-left: 2em !important; text-indent: -2em; }
+    .zp-statements li > b:first-child, .zp-cluebox .zp-clueqs li > .zp-n:first-child { display: inline-block; width: 2em; text-indent: 0; }
+    .zp-statements li > span, .zp-cluebox .zp-clueqs li > span { text-indent: 0; }
+    .zp-words, .zp-word, .zp-log, .zp-log a { display: block !important; }
+    .zp-word .ex { display: block; }
+    .zp-mistake dl { display: block !important; }
+    .zp-mistake dl > dt { float: left; clear: left; margin-right: 6pt; }
+    .zp-mistake dl > dd { margin-left: 0 !important; }
   }
 }
