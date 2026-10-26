@@ -495,38 +495,12 @@
 
   async function openFile(id, button) {
     button.disabled = true;
-    try {
-      const blob = await N.loadMedia('upload:' + id), url = URL.createObjectURL(blob);
-      const dialog = document.createElement('dialog'); dialog.className = 'zp-file-preview';
-      const meta = S.files[id] || {};
-      dialog.innerHTML = `<button type="button" class="zp-btn">Close</button><p>${N.esc(meta.name || 'Uploaded page')}</p>${meta.mime === 'application/pdf' ? '<iframe title="Uploaded PDF"></iframe>' : '<img alt="Uploaded page">'}<p><a download="${N.esc(meta.name || 'upload')}" href="${url}">Download original file</a></p>`;
-      dialog.querySelector('iframe,img').src = url;
-      dialog.querySelector('button').onclick = () => dialog.close();
-      dialog.addEventListener('close', () => { URL.revokeObjectURL(url); dialog.remove(); });
-      document.body.append(dialog); dialog.showModal();
-    } catch (e) { setStatus(e.message || 'The file could not be opened.'); }
+    try { await N.viewUpload(id, S.files[id]); }
+    catch (e) { setStatus(e.message || 'The file could not be opened.'); }
     finally { button.disabled = false; }
   }
 
-  // Phone photos are large; shrink them to a sharp, readable JPEG before sending.
-  async function prepare(file) {
-    const isImage = /^image\//.test(file.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
-    if (isImage && file.size > 1.2 * 1024 * 1024) {
-      try {
-        const bitmap = await createImageBitmap(file);
-        const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(bitmap.width * scale);
-        canvas.height = Math.round(bitmap.height * scale);
-        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
-        if (blob && blob.size < file.size) return { blob, type: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg' };
-      } catch (error) { /* keep the original file */ }
-    }
-    let type = file.type;
-    if (!type) type = /\.pdf$/i.test(file.name) ? 'application/pdf' : /\.hei[cf]$/i.test(file.name) ? 'image/heic' : 'image/jpeg';
-    return { blob: file, type, name: file.name };
-  }
+  const prepare = N.preparePage;
 
   async function uploadFiles(id, files, input) {
     if (S.batches || readOnly()) { input.value = ''; return; }

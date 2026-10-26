@@ -137,6 +137,38 @@ window.Zs = (() => {
     return job;
   }
 
+  // Phone photos are large; shrink them to a sharp, readable JPEG before sending (task pages and own practice).
+  async function preparePage(file) {
+    const isImage = /^image\//.test(file.type) || /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name);
+    if (isImage && file.size > 1.2 * 1024 * 1024) {
+      try {
+        const bitmap = await createImageBitmap(file);
+        const scale = Math.min(1, 2200 / Math.max(bitmap.width, bitmap.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(bitmap.width * scale);
+        canvas.height = Math.round(bitmap.height * scale);
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+        if (blob && blob.size < file.size) return { blob, type: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg' };
+      } catch (error) { /* keep the original file */ }
+    }
+    let type = file.type;
+    if (!type) type = /\.pdf$/i.test(file.name) ? 'application/pdf' : /\.hei[cf]$/i.test(file.name) ? 'image/heic' : 'image/jpeg';
+    return { blob: file, type, name: file.name };
+  }
+
+  // One of the learner's own uploaded pages, shown over the page with a link to the original file.
+  async function viewUpload(id, meta) {
+    const blob = await loadMedia('upload:' + id), url = URL.createObjectURL(blob);
+    const info = meta || {};
+    const dialog = document.createElement('dialog'); dialog.className = 'zp-file-preview';
+    dialog.innerHTML = `<button type="button" class="zp-btn">Close</button><p>${esc(info.name || 'Uploaded page')}</p>${info.mime === 'application/pdf' ? '<iframe title="Uploaded PDF"></iframe>' : '<img alt="Uploaded page">'}<p><a download="${esc(info.name || 'upload')}" href="${url}">Download original file</a></p>`;
+    dialog.querySelector('iframe,img').src = url;
+    dialog.querySelector('button').onclick = () => dialog.close();
+    dialog.addEventListener('close', () => { URL.revokeObjectURL(url); dialog.remove(); });
+    document.body.append(dialog); dialog.showModal();
+  }
+
   const toBase64 = (blob) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
@@ -155,5 +187,5 @@ window.Zs = (() => {
   }
 
   header();
-  return { A, root, esc, sleep, newId, when, longDate, clock, size, words, taskHref, taskCard, folds, foldBar, openTarget, loadMedia, toBase64, fail, previewNote, origin, warmOrigin };
+  return { A, root, esc, sleep, newId, when, longDate, clock, size, words, taskHref, taskCard, folds, foldBar, openTarget, loadMedia, preparePage, viewUpload, toBase64, fail, previewNote, origin, warmOrigin };
 })();
