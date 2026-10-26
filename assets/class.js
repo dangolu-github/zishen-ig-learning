@@ -18,7 +18,10 @@
     const words = (c.words || []).length
       ? `<div class="zp-cards">${c.words.map((l) => linkCard(pageHref('words'), 'Class Words', l.title, `${l.words.length} words`)).slice(0, 1).join('')}</div>`
       : '<p class="zp-empty">No word list for this class yet.</p>';
-    const homework = c.tasks.length ? `<div class="zp-cards">${c.tasks.map(N.taskCard).join('')}</div>` : '<p class="zp-empty">No homework for this class.</p>';
+    // Archived homework stays here, under its own closed heading (teacher, 2026-10-26).
+    const current = c.tasks.filter((t) => !t.archived), shelved = c.tasks.filter((t) => t.archived);
+    const homework = (current.length ? `<div class="zp-cards">${current.map(N.taskCard).join('')}</div>` : '<p class="zp-empty">No homework for this class.</p>') +
+      (shelved.length ? `<details class="zp-fold zp-archive" data-fold="homework-archive"><summary><h3>Archived homework <small>${shelved.length}</small></h3></summary><div class="zp-cards">${shelved.map(N.taskCard).join('')}</div></details>` : '');
     app.innerHTML = `
       <p class="zp-back"><a href="../">← Home</a></p>
       <p class="zp-kicker">Class ${N.esc(c.number)} · ${N.esc(N.longDate(c.date))}</p>
@@ -28,7 +31,7 @@
       <details class="zp-section zp-fold" data-fold="handout" id="class-handout"><summary><h2>Class Handout <small>${c.resources.length}</small></h2></summary>${handouts}</details>
       <details class="zp-section zp-fold" data-fold="summary" id="class-summary"><summary><h2>Class Summary</h2></summary>${summary}</details>
       <details class="zp-section zp-fold" data-fold="words" id="class-words"><summary><h2>Class Words</h2></summary>${words}</details>
-      <details class="zp-section zp-fold" data-fold="homework" id="homework"><summary><h2>Homework <small>${c.tasks.length}</small></h2></summary>${homework}</details>`;
+      <details class="zp-section zp-fold" data-fold="homework" id="homework"><summary><h2>Homework <small>${current.length}</small></h2></summary>${homework}</details>`;
     N.folds(app, 'class:' + c.id);
     N.openTarget();
   }

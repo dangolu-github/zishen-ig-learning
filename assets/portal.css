@@ -407,3 +407,8 @@ details.zp-section[open] > summary { margin-bottom: 8px; }
 .zp-printbar { margin: 4px 0 8px; }
 .zp-files li > span:first-child { flex: 1 1 auto; }
 .zp-files li { justify-content: flex-start; flex-wrap: wrap; }
+
+/* Archived homework on a class page: a closed fold under the current homework (2026-10-26). */
+.zp-archive { margin-top: 14px; }
+.zp-archive > summary h3 { display: inline; margin: 0; font-size: 15px; }
+.zp-archive > .zp-cards { padding: 0 14px 14px; }
