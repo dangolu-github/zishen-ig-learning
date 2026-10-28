@@ -15,6 +15,19 @@
   // pending: the upload ID of each page that has not been confirmed yet, so choosing the same page again
   // after a failure is a retry of that upload and the course reuses the file it already saved.
   const fresh = () => ({ ownId: N.newId('own'), title: '', skill: 'Reading', hasKey: false, note: '', files: [], meta: {}, pending: {} });
+  // A page's upload ID has to outlive this page, not just this moment in it: a first upload that starts
+  // with nothing kept on this device is exactly the one that comes back as a second copy, because a reload
+  // loses the ID and the next attempt asks for a new one. So before anything is sent, the ID is read back
+  // out of what this device actually kept - never out of S.form.pending, which would answer for storage and
+  // hide the very fault this guards. An ID that is already stored is enough even if a later write fails.
+  const storedPending = () => {
+    try {
+      const kept = JSON.parse(localStorage.getItem(STORE) || 'null');
+      return (kept && kept.pending) || {};
+    } catch (error) { return null; }
+  };
+  const durablePending = (slot, fileId) => { const stored = storedPending(); return Boolean(stored && stored[slot] === fileId); };
+  const STORAGE_OFF = 'This browser is not saving data for this page, so no new copy of this file was sent. Please allow this site to save data, keep this page open, then choose the same pages again.';
   // One chosen file, named by what the browser knows about it.
   const fileSlot = (file) => `${file.name}|${file.size}|${file.lastModified || 0}|${file.type || ''}`;
   // A retry must send the same bytes, so the prepared blob of an unconfirmed page is kept for this page's life.
@@ -83,6 +96,13 @@
         // new ID would make that second copy.
         const fileId = S.form.pending[slot] || N.newId('file');
         if (S.form.pending[slot] !== fileId) { S.form.pending[slot] = fileId; writeLocal(); }
+        if (!durablePending(slot, fileId)) {
+          // A write the browser refused earlier is tried again here, so allowing storage and choosing the
+          // same pages again records the ID this hand-in is already holding instead of starting a second
+          // upload. The ID stays in memory either way: the retry is this same upload.
+          writeLocal();
+          if (!durablePending(slot, fileId)) throw new Error(STORAGE_OFF);
+        }
         const result = await A.post('uploadOwnFile', { ownId: S.form.ownId, fileId, type: ready.type, name: ready.name, data: await N.toBase64(ready.blob), submissionOrigin: await N.origin() });
         // A retried page comes back as the same file; it is listed once, in its original place.
         if (S.form.files.indexOf(fileId) < 0) S.form.files.push(fileId);
