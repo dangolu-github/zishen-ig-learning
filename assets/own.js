@@ -12,7 +12,13 @@
   const readLocal = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (error) { return null; } };
   const writeLocal = () => { try { localStorage.setItem(STORE, JSON.stringify(Object.assign({ env: S.env }, S.form))); } catch (error) { /* the pages are on the server already */ } };
   const clearLocal = () => { try { localStorage.removeItem(STORE); } catch (error) { /* nothing kept */ } };
-  const fresh = () => ({ ownId: N.newId('own'), title: '', skill: 'Reading', hasKey: false, note: '', files: [], meta: {} });
+  // pending: the upload ID of each page that has not been confirmed yet, so choosing the same page again
+  // after a failure is a retry of that upload and the course reuses the file it already saved.
+  const fresh = () => ({ ownId: N.newId('own'), title: '', skill: 'Reading', hasKey: false, note: '', files: [], meta: {}, pending: {} });
+  // One chosen file, named by what the browser knows about it.
+  const fileSlot = (file) => `${file.name}|${file.size}|${file.lastModified || 0}|${file.type || ''}`;
+  // A retry must send the same bytes, so the prepared blob of an unconfirmed page is kept for this page's life.
+  const prepared = new Map();
 
   function filesHtml(ids, meta, editable) {
     return `<ul class="zp-files">${ids.map((f, index) => {
@@ -51,23 +57,47 @@
     const say = (text, kind) => { message.textContent = text; message.className = 'zp-msg' + (kind ? ' ' + kind : ''); };
     const bad = files.find((f) => !/^image\//.test(f.type) && f.type !== 'application/pdf' && !/\.(pdf|heic|heif|jpe?g|png|webp)$/i.test(f.name));
     if (bad) { say(`${bad.name} is not a photo or PDF.`, 'error'); input.value = ''; return; }
-    if (S.form.files.length + files.length > S.limits.maxFiles) { say(`Choose no more than ${S.limits.maxFiles} files in total. No files from this selection were added.`, 'error'); input.value = ''; return; }
+    if (!S.form.pending) S.form.pending = {};
+    // Retrying a part-finished selection sends its already-listed pages again. Those are the same pages,
+    // not extra ones, so they are not counted against the limit twice - otherwise a hand-in that filled
+    // the limit could never be retried.
+    const adding = files.filter((f) => {
+      const known = S.form.pending[fileSlot(f)];
+      return !known || S.form.files.indexOf(known) < 0;
+    }).length;
+    if (S.form.files.length + adding > S.limits.maxFiles) { say(`Choose no more than ${S.limits.maxFiles} files in total. No files from this selection were added.`, 'error'); input.value = ''; return; }
     S.batches += 1; input.disabled = true; bar.hidden = false; fill.style.width = '5%';
+    // Each page's upload ID is released only when the whole selection has gone through: a page that
+    // arrived must keep its ID while a later page of the same selection is still failing, or the next
+    // press would ask for a second copy of a page that is already saved.
+    const done = [];
     try {
       for (let i = 0; i < files.length; i += 1) {
         say(`Sending ${i + 1} of ${files.length}… Keep this page open.`);
-        const ready = await N.preparePage(files[i]);
+        const slot = fileSlot(files[i]);
+        const ready = prepared.get(slot) || await N.preparePage(files[i]);
+        prepared.set(slot, ready);
         if (ready.blob.size > S.limits.maxBytes) throw new Error(`${files[i].name} is larger than 12 MB. Take the photo again at a smaller size.`);
-        const fileId = N.newId('file');
+        // The same page sent again keeps its upload ID, so the course reuses its file instead of saving a
+        // second copy. An upload that failed never gives its ID up: an unknown outcome is exactly when a
+        // new ID would make that second copy.
+        const fileId = S.form.pending[slot] || N.newId('file');
+        if (S.form.pending[slot] !== fileId) { S.form.pending[slot] = fileId; writeLocal(); }
         const result = await A.post('uploadOwnFile', { ownId: S.form.ownId, fileId, type: ready.type, name: ready.name, data: await N.toBase64(ready.blob), submissionOrigin: await N.origin() });
-        S.form.files.push(fileId);
+        // A retried page comes back as the same file; it is listed once, in its original place.
+        if (S.form.files.indexOf(fileId) < 0) S.form.files.push(fileId);
         S.form.meta[fileId] = { name: result.name || ready.name, mime: ready.type, bytes: result.bytes || ready.blob.size };
         writeLocal(); drawFiles();
+        done.push(slot);
         fill.style.width = Math.round(((i + 1) / files.length) * 100) + '%';
       }
+      // Every page of this selection is listed and saved on this device, so the IDs have done their work.
+      done.forEach((slot) => { delete S.form.pending[slot]; prepared.delete(slot); });
+      writeLocal();
       say(`Uploaded ${files.length} file${files.length === 1 ? '' : 's'}. Check the list and the order, then press Hand in.`, 'success');
     } catch (error) {
-      say((error && error.message) || 'The upload did not finish. Please try again.', 'error');
+      say(((error && error.message) || 'The upload did not finish.')
+        + ' Choose the same files and press again to finish this upload.', 'error');
     } finally {
       S.batches -= 1; input.disabled = false; input.value = '';
       setTimeout(() => { bar.hidden = true; }, 1200);
