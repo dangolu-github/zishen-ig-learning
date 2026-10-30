@@ -260,8 +260,9 @@ fieldset.zp-q { min-width: 0; }
 .zp-paper-mode [data-blocks] .zp-file { display: none; }
 .zp-paper-reviewed > textarea, .zp-paper-reviewed > input { display: none; }
 .zp-paper-reviewed .zp-gap-line > input { display: none; }
-.zp-error-span { color: #b42318; text-decoration: underline wavy; }
-.zp-fix-span { color: #175cd3; }
+.zp-error-span, .zp-del { color: #6b6b6b; text-decoration: line-through; text-decoration-color: #b42318; text-decoration-thickness: 1.5px; }
+.zp-fix-span, .zp-ins { color: #b42318; text-decoration: none; font-weight: 600; }
+.zp-marked { margin: 6px 0; }
 .zp-file-preview { width: min(92vw, 1000px); max-height: 90vh; border: 1px solid var(--line); border-radius: 12px; }
 .zp-file-preview img { display: block; max-width: 100%; height: auto; }
 .zp-file-preview iframe { display: block; width: 100%; height: 70vh; border: 0; }

@@ -272,6 +272,8 @@
         if (option) option.checked = true;
         extra.push(`<div class="zp-pre zp-original"><span class="label">Your answer (from your paper):</span> ${annotatedOriginal(i.original, i.spans) || '<i>(blank)</i>'}${i.uncertain ? '<small> [?] Your teacher could not read part of this.</small>' : ''}</div>`);
       }
+      // Marked original (teacher, 2026-10-30): the learner's own words with the wrong part struck through and the new words in red; no rewritten version.
+      if (i.marked) extra.push(`<div class="zp-pre zp-marked"><span class="label">Marked:</span> ${markedHtml(i.marked)}</div>`);
       if (i.correct) extra.push(`<p class="zp-pre"><span class="label">Correction:</span> ${N.esc(i.correct)}</p>`);
       if (i.comment) extra.push(`<p class="zp-pre"><span class="label">Comment:</span> ${N.esc(i.comment)}</p>`);
       if (i.key) extra.push(`<p><span class="label">Answer:</span> ${N.esc(i.key)}</p>`);
@@ -283,11 +285,16 @@
     });
   }
 
+  // Teacher markup inside a marked original: [-struck out-] and {+added+}; everything else is shown as written.
+  function markedHtml(text) {
+    return N.esc(String(text || '')).replace(/\[-([\s\S]*?)-\]/g, '<del class="zp-del">$1</del>').replace(/\{\+([\s\S]*?)\+\}/g, '<ins class="zp-ins">$1</ins>');
+  }
+
   function annotatedOriginal(original, spans) {
     const value = String(original || ''); let cursor = 0, html = '';
     (spans || []).forEach((span) => {
       if (!Number.isInteger(span.start) || !Number.isInteger(span.end) || span.start < cursor || span.end <= span.start || span.end > value.length) return;
-      html += N.esc(value.slice(cursor, span.start)) + `<span class="zp-error-span">${N.esc(value.slice(span.start, span.end))}</span><span class="zp-fix-span"> [${N.esc(span.replacement || '')}]</span>`;
+      html += N.esc(value.slice(cursor, span.start)) + `<del class="zp-del">${N.esc(value.slice(span.start, span.end))}</del>` + (span.replacement ? `<ins class="zp-ins">${N.esc(span.replacement)}</ins>` : '');
       cursor = span.end;
     });
     return html + N.esc(value.slice(cursor));

@@ -115,8 +115,8 @@
   /* The hand-in panel never prints; its empty wrapper alone pushed a blank last page onto a full mock (2026-10-24). */
   [data-handin], .zp-handin, .zp-handin-hint { display: none !important; }
   .zp-original { margin: 1.5pt 0 !important; }
-  .zp-error-span { color: #111 !important; text-decoration: underline wavy !important; }
-  .zp-fix-span { color: #111 !important; font-weight: 700 !important; }
+  .zp-error-span, .zp-del { color: #555 !important; text-decoration: line-through; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .zp-fix-span, .zp-ins { color: #b42318 !important; text-decoration: none; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .zp-mistake { break-inside: avoid; border-bottom: .4pt solid #ccc !important; }
   .zp-mistake dl { margin: 1pt 0 !important; }
   .zp-words { margin: 0 !important; padding: 0 !important; }
