@@ -101,6 +101,19 @@
         } catch (error) { slot.innerHTML = `<p class="zp-msg error">Page ${i + 1} could not be loaded. Reload the page to try again.</p>`; }
       }));
     }
+    // Recordings played in class (Class 03, 2026-10-31): a handout marks where each clip goes with data-media-audio; the
+    // private clip is fetched like any other media and played in place. Print leaves the player out (.zp-audio).
+    app.querySelectorAll('[data-media-audio]').forEach(async (box) => {
+      const slot = document.createElement('p');
+      slot.className = 'zp-note'; slot.textContent = 'Loading the recording…';
+      box.appendChild(slot);
+      try {
+        const audio = document.createElement('audio');
+        audio.controls = true; audio.preload = 'metadata';
+        audio.src = URL.createObjectURL(await N.loadMedia(box.dataset.mediaAudio));
+        slot.replaceWith(audio);
+      } catch (error) { slot.className = 'zp-msg error'; slot.textContent = 'The recording could not be loaded. Reload the page to try again.'; }
+    });
     document.getElementById('print').addEventListener('click', () => window.ZsPrint.print({ prepare: () => pages }).catch(() => window.print()));
     bindWords(c);
     bindClues();
