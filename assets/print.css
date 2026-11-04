@@ -20,11 +20,18 @@
   ul, ol { padding-left: 16pt; }
   a { color: inherit !important; text-decoration: none !important; }
   details, .zp-q, .zp-block, .zp-fold, .zp-doc, .zp-pages, .zp-section, .zp-rich,
-  .zp-result, .zp-verdict, .zp-mistake, .zp-cards, .zp-notes, .zp-prompt, .zp-memo {
+  .zp-result, .zp-verdict, .zp-mistake, .zp-cards, .zp-notes, .zp-prompt, .zp-memo,
+  .zp-split, .zp-split-pane, .zp-split-text-item, .zp-split-text-body {
     max-height: none !important; height: auto; overflow: visible !important;
     border-radius: 0 !important; box-shadow: none !important; background: none !important;
     break-inside: auto !important;
   }
+  /* A reading task prints as one column: print.js has already moved each passage back to its own place in
+     the task, so the two panes are plain blocks here and the passage heading is an ordinary heading. */
+  .zp-split, .zp-split-pane, .zp-split-text-item, .zp-split-text-body { display: block !important; padding: 0 !important; border: 0 !important; margin: 0 !important; }
+  .zp-split-text-head { position: static !important; padding: 0 !important; border: 0 !important; background: none !important; font-size: 11.5pt !important; margin: 6pt 0 3pt !important; }
+  .zp-split-text-head small { display: none !important; }
+  .zp-split-pane .zp-rich table { display: table !important; width: 100% !important; }
   details { border: 0 !important; margin: 3pt 0 !important; padding: 0 !important; }
   details > summary { display: block !important; list-style: none !important; padding: 2pt 0 !important; font-size: 10.5pt !important; }
   details > summary::-webkit-details-marker { display: none !important; }

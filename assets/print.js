@@ -11,6 +11,16 @@
     state = { details: [], controls: [], added: [], classes: [], labels: [], lineFits: [], blank: Boolean(options.blank) };
     document.body.classList.add('zp-printing');
     document.body.classList.toggle('zp-print-blank', state.blank);
+    // A reading task's passages sit in their own pane on screen; on paper each goes back to its own place in
+    // the task, after the instructions that introduce it (task.js leaves a hidden slot there). A mock with
+    // several passages therefore prints in the paper's order, not with the passages gathered at the front.
+    state.texts = [];
+    app.querySelectorAll('.zp-split-texts > [data-text]').forEach((text) => {
+      const slot = app.querySelector('[data-text-slot="' + text.dataset.text + '"]');
+      if (!slot) return;
+      state.texts.push(text);
+      slot.after(text);
+    });
     app.querySelectorAll('details').forEach((node) => {
       state.details.push([node, node.open]);
       // A listening script prints only if the learner opened it; closed, print.css leaves it out.
@@ -144,6 +154,8 @@
     previous.classes.forEach(([node, name]) => node.classList.remove(name));
     previous.lineFits.forEach((list) => { list.classList.remove('zp-fit-lines'); list.style.removeProperty('--zp-line-em'); });
     previous.details.forEach(([node, open]) => { node.open = open; });
+    const pane = document.querySelector('.zp-split-texts');
+    if (pane) (previous.texts || []).forEach((text) => pane.append(text));
     document.body.classList.remove('zp-printing', 'zp-print-blank');
     document.dispatchEvent(new CustomEvent('zs:print-restored'));
   }

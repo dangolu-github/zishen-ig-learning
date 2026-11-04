@@ -321,6 +321,69 @@ details.zp-section[open] > summary { margin-bottom: 8px; }
 .zp-addword input, .zp-addword textarea { display: block; width: 100%; margin-top: 4px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; font-weight: 400; color: var(--ink); background: #fff; }
 .zp-tablewrap { overflow-x: auto; }
 @media print { .zp-foldbar, .zp-searchrow { display: none !important; } .zp-sec, .zp-group { break-inside: auto; } }
+
+/* Reading tasks (task.js, 2026-11-04): the passages on the left, the questions on the right, each pane
+   scrolling on its own; the page itself does not scroll. Narrow windows stack the panes, passages on top.
+   Both panes size themselves from the window that is open now, so a resize or a zoom needs no reload, and
+   every pane sizes its own content: a table that needs more width scrolls inside its own wrapper and never
+   widens the pane or the page. Screen only — printing keeps one column, in the paper's order (print.js). */
+@media screen {
+  body.zp-split-page { height: 100vh; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; }
+  body.zp-split-page > * { flex: none; }
+  body.zp-split-page > .zp-page { flex: 1 1 auto; min-height: 0; min-width: 0; width: 100%; max-width: none; display: flex; flex-direction: column; padding: 10px clamp(10px, 1.7vw, 24px) 14px; }
+  .zp-split-page .zp-page > .zp-back, .zp-split-page .zp-page > .zp-kicker { margin: 0; }
+  .zp-split-page .zp-page > h1 { margin: 2px 0 6px; font-size: clamp(19px, 2.2vw, 26px); }
+  .zp-split-page .zp-taskbar { position: static; margin: 0 0 10px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 10px; }
+  .zp-split { flex: 1 1 auto; min-height: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: clamp(10px, 1.4vw, 20px); }
+  .zp-split-pane { min-height: 0; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .zp-split-pane .zp-rich table { display: block; width: 100%; max-width: 100%; overflow-x: auto; }
+  .zp-split-texts { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+  .zp-split-text-item + .zp-split-text-item { border-top: 1px solid var(--line); }
+  /* A heading, not a toggle: the text the questions are about cannot be closed (reading-split-pane rule 3). */
+  .zp-split-text-head { position: sticky; top: 0; z-index: 1; margin: 0; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 750; }
+  .zp-split-text-head small { display: block; color: var(--muted); font-size: 13px; font-weight: 600; }
+  .zp-split-text-body { margin: 0; padding: 4px 16px 16px; border: 0; border-radius: 0; background: none; }
+  .zp-split-questions { padding: 0 6px 24px 2px; }
+  .zp-split-questions > [data-top]:empty + .zp-foldbar, .zp-split-questions > .zp-foldbar { margin-top: 0; }
+  .zp-split-questions > [data-blocks] > :first-child { margin-top: 0; }
+  .zp-split-page .zp-submit { margin-top: 18px; padding-top: 14px; }
+}
+@media screen and (max-width: 767px) {
+  body.zp-split-page > .zp-page { padding: 8px 10px 10px; }
+  .zp-split-page .zp-taskbar { margin-bottom: 8px; padding: 4px 10px; }
+  .zp-split { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 45fr) minmax(0, 55fr); gap: 10px; }
+  .zp-split-text-head { padding: 8px 14px; }
+  .zp-split-text-body { padding: 4px 14px 14px; }
+  /* A phone's height goes to the two panes, not to the rows above them: the site header keeps one row with
+     its nav scrolling inside it, the kicker keeps one line, and the task bar scrolls sideways in its own row
+     instead of wrapping into four. Nothing is dropped - the passage, the questions, the time, the progress
+     and every action are all still there - and a wide window keeps the fuller chrome. */
+  .zp-split-page .zp-top-inner { flex-wrap: nowrap; gap: 8px; padding: 6px 10px; }
+  .zp-split-page .zp-brand { flex: none; }
+  .zp-split-page .zp-nav { min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
+  .zp-split-page .zp-nav a { flex: none; padding: 4px 8px; }
+  .zp-split-page .zp-nav a small { display: none; }
+  /* These rows scroll or clip their own content, so they keep their own row height (a flex item that can
+     scroll may otherwise be squeezed to nothing by a short window, which would hide what is in it). */
+  .zp-split-page .zp-page > .zp-kicker { flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zp-split-page .zp-page > h1 { font-size: 17px; margin: 2px 0 4px; }
+  .zp-split-page .zp-taskbar { flex: none; flex-wrap: nowrap; overflow-x: auto; gap: 4px 10px; font-size: 13px; }
+  .zp-split-page .zp-taskbar > * { flex: none; }
+  .zp-split-page .zp-taskbar .grow { flex: 1 0 0; }
+}
+/* A short window (a landscape phone, a split screen, 200% zoom) keeps the panes usable: the chrome above
+   them gives up its spare height first. */
+@media screen and (max-height: 500px) {
+  .zp-split-page .zp-top-inner { padding: 4px 12px; flex-wrap: nowrap; gap: 8px; }
+  .zp-split-page .zp-brand { flex: none; }
+  .zp-split-page .zp-nav { min-width: 0; flex-wrap: nowrap; overflow-x: auto; }
+  .zp-split-page .zp-nav a { flex: none; padding: 4px 8px; }
+  .zp-split-page .zp-preview, .zp-split-page .zp-page > .zp-kicker, .zp-split-page .zp-page > .zp-back { display: none; }
+  body.zp-split-page > .zp-page { padding-top: 4px; padding-bottom: 6px; }
+  /* A short window gives the title one line too: the panes need the height more than a wrapped heading does. */
+  .zp-split-page .zp-page > h1 { flex: none; font-size: 18px; margin: 2px 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zp-split-page .zp-taskbar { margin-bottom: 6px; padding: 4px 8px; }
+}
 .zp-inline .zp-opts { display: flex; flex-wrap: wrap; gap: 8px; }
 .zp-inline .zp-opt { margin: 0; min-width: 64px; justify-content: center; }
 .zp-inline .zp-opt span:not(.zp-letter) { font-weight: 600; }

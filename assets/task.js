@@ -134,9 +134,17 @@
     return '';
   }
 
+  // The reading passages of this task, in the catalogue's order (2026-11-04). A passage is an html block whose
+  // toggle is named "Text …" / "Texts A–D …" and that carries the catalogue's article heading. A listening
+  // task's "Questions 19–26 · Bees" heading uses the same heading class but is not a passage, and a writing
+  // prompt is not one either: neither gets a text pane. Nothing else about the block is changed.
+  function readingTexts(t) {
+    return t.blocks.filter((b) => b.type === 'html' && /^Texts?\b/.test(b.fold || '') && /zp-text-title/.test(b.html || ''));
+  }
+
   // Blocks in order; consecutive blocks with the same `sec` share an outer toggle and, inside it, consecutive
   // blocks with the same `fold` share an inner toggle.
-  function blocksHtml(blocks) {
+  function blocksHtml(blocks, texts) {
     const groups = t => (t.requireAny || []);
     let html = '', i = 0;
     const isSecond = (b) => b.type === 'q' && groups(S.task).some((g) => g.indexOf(b.id) > 0);
@@ -144,7 +152,11 @@
     // on work submitted that way before (its files stay part of that receipt).
     // (Only when the backend offers the panel, so the site and the backend can be released in either order.)
     const hidden = (b) => b.type === 'q' && b.kind === 'file' && Boolean(S.task.paperUpload) && !(S.submission && hasAnswer(S.responses[b.id]));
-    const one = (b) => (hidden(b) ? '' : (isSecond(b) ? '<p class="zp-or">— OR —</p>' : '') + blockHtml(b));
+    // A passage is drawn in the texts pane instead. Its own place keeps a hidden slot, so printing puts each
+    // passage back exactly where the paper has it, however many passages a mock interleaves (print.js).
+    const isText = (b) => texts.indexOf(b) >= 0;
+    const slot = (b) => `<div data-text-slot="${texts.indexOf(b)}" hidden></div>`;
+    const one = (b) => (isText(b) ? slot(b) : hidden(b) ? '' : (isSecond(b) ? '<p class="zp-or">— OR —</p>' : '') + blockHtml(b));
     const inner = (list) => {
       let out = '', k = 0;
       while (k < list.length) {
@@ -152,6 +164,9 @@
         if (!fold) { out += one(list[k]); k += 1; continue; }
         const run = [];
         while (k < list.length && list[k].fold === fold) { run.push(list[k]); k += 1; }
+        // The passage's own toggle is not drawn here: the pane holds it open under a sticky heading, so
+        // Open all / Close all cannot close the text the questions are about.
+        if (run.every(isText)) { out += run.map(slot).join(''); continue; }
         out += `<details class="zp-group zp-fold" data-fold="${N.esc((run[0].sec || '') + '›' + fold)}"><summary>${N.esc(fold)}</summary><div class="zp-group-body">${run.map(one).join('')}</div></details>`;
       }
       return out;
@@ -176,18 +191,26 @@
     // Recordings first, outside the toggles.
     const audio = t.blocks.filter((b) => b.type === 'audio');
     const rest = t.blocks.filter((b) => b.type !== 'audio');
+    const texts = readingTexts(t);
     const back = t.classId ? `<a href="${N.root}class/?id=${encodeURIComponent(t.classId)}">← Class</a> · ` : '';
     const kind = t.group === 'mock' ? 'Full mock exam' : t.group === 'homework' ? 'Homework' : t.setId ? 'Practice by paper' : 'Practice by question type';
+    // Reading: the passages on one side, everything the learner works with — recording, instructions,
+    // questions, feedback, hand-in panel and the submit bar — on the other (reading-split-pane rule 5).
+    const work = `<div data-top></div>
+      ${audio.map(blockHtml).join('')}
+      ${N.foldBar()}
+      <div data-blocks>${blocksHtml(rest, texts)}</div>
+      <div data-handin></div><div class="zp-submit" data-submit></div>`;
+    const textsHtml = texts.map((b, i) => `<section class="zp-split-text-item" data-text="${i}">
+      <h2 class="zp-split-text-head">${N.esc(b.fold || 'Text')}${b.sec ? `<small>${N.esc(b.sec)}</small>` : ''}</h2>
+      <div class="zp-block zp-rich zp-split-text-body">${b.html}</div></section>`).join('');
     app.innerHTML = `
       <p class="zp-back">${back}<a href="${N.root}extra-practice/">← Extra Practice</a></p>
       <p class="zp-kicker">${N.esc(kind)} · ${t.source && t.source.indexOf(t.paperLabel) === 0 ? N.esc(t.source) : N.esc(t.paperLabel) + (t.source ? ' · ' + N.esc(t.source) : '')}</p>
       <h1>${N.esc(t.label)}</h1>
       <div class="zp-taskbar"><span data-time></span><span data-progress></span><span class="grow"></span><span data-status role="status"></span><button class="zp-linkbtn" type="button" data-print="blank">Print questions / PDF</button>${S.submission ? '<button class="zp-linkbtn" type="button" data-print="review">Print my work / PDF</button>' : ''}</div>
-      <div data-top></div>
-      ${audio.map(blockHtml).join('')}
-      ${N.foldBar()}
-      <div data-blocks>${blocksHtml(rest)}</div>
-      <div data-handin></div><div class="zp-submit" data-submit></div>`;
+      ${texts.length ? `<div class="zp-split"><section class="zp-split-pane zp-split-texts" aria-label="Texts 文章">${textsHtml}</section><div class="zp-split-pane zp-split-questions">${work}</div></div>` : work}`;
+    document.body.classList.toggle('zp-split-page', texts.length > 0);
     app.classList.toggle('zp-paper-mode', paperMode());
     // Native question tables keep their column relationships and use the standard answer controls.
     app.querySelectorAll('[data-answer-slot]').forEach((slot) => {
@@ -279,7 +302,9 @@
       if (i.key) extra.push(`<p><span class="label">Answer:</span> ${N.esc(i.key)}</p>`);
       if (i.accept) extra.push(`<p><span class="label">Answer:</span> ${i.accept.map(N.esc).join(' &nbsp;/&nbsp; ')}</p>`);
       if (i.points) extra.push(`<div><span class="label">Acceptable points (one mark each):</span><ul>${i.points.map((p) => `<li>${N.esc(p)}</li>`).join('')}</ul></div>`);
-      if (i.explain) extra.push(`<p>${i.explain}</p>`);
+      // The explanation arrives only while the task's Show explanations switch is on; off, there is no field
+      // here at all, so nothing of it is in the page source, the DOM or the printed copy. It starts folded.
+      if (i.explain) extra.push(`<details class="zp-explain"><summary>Explanation 解析</summary><div class="zp-rich">${i.explain}</div></details>`);
       if (i.model) extra.push(`<details><summary>Model answer</summary><div class="zp-rich">${i.model}</div></details>`);
       box.insertAdjacentHTML('beforeend', `<div class="zp-verdict ${i.verdict}" data-print-feedback><p class="label">${labels[i.verdict]}</p>${extra.join('')}</div>`);
     });
