@@ -241,7 +241,7 @@
     const top = app.querySelector('[data-top]');
     if (S.submission) {
       const r = S.submission.result || {};
-      let html = `<p class="zp-banner" data-print-feedback>Submitted · ${N.esc(N.when(S.submission.submittedAt))}<small>${r.released ? (r.pending ? 'Some answers are still waiting for your teacher. Your other results are below.' : 'Your feedback is below.') : 'Your teacher will check this.'}</small></p>`;
+      let html = `<p class="zp-banner" data-print-feedback>Submitted · ${N.esc(N.when(S.submission.submittedAt))}<small>${r.released ? (r.pending ? 'Some answers are still waiting for your teacher. Your other results are below.' : 'Your feedback is below.') : 'Waiting for your teacher to review.'}</small></p>`;
       if (paperMode()) {
         const names = paperFiles().map((f, i) => `${i + 1}. ${(S.files[f] || {}).name || 'File'}`).join(' · ');
         html += `<p class="zp-paper-receipt" data-print-feedback>Handed in on paper · ${paperFiles().length} file${paperFiles().length === 1 ? '' : 's'}: ${N.esc(names)}</p>`;
