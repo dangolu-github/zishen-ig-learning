@@ -6,11 +6,14 @@
 // only saves the pages, and "Submit" hands them in. The pages travel in one task-level envelope, `__paper`.
 // Blocks may name an outer section (`sec`, e.g. "Exercise 2") and an inner group (`fold`, e.g. "Questions 7(a)–(i)");
 // each becomes a remembered toggle. Recordings stay above the toggles so they keep playing while you answer.
+// Speaking (2026-11-17): a `speak` question is answered by recording or by uploading an audio file
+// (assets/recorder.js, loaded before this file). Each take is sent at once through sendFile below; a task with a
+// speaking question has no paper route (its paperUpload.paperMode is false), so its hand-in panel is not drawn.
 (() => {
   const N = window.Zs, A = N.A, app = document.getElementById('app');
   const taskId = new URLSearchParams(location.search).get('id') || '';
   const S = { task: null, control: null, env: '', responses: {}, files: {}, submission: null, saveId: '', submissionId: '', clientUpdatedAt: '', secondsUsed: 0,
-    dirty: false, saving: false, syncedSeconds: -1, blocked: '', uploads: 0, batches: 0, uploadErrors: {}, submitting: false, timer: null, retryDelay: 4000, pageLoads: [],
+    dirty: false, saving: false, syncedSeconds: -1, blocked: '', uploads: 0, batches: 0, uploadErrors: {}, submitting: false, timer: null, retryDelay: 4000, pageLoads: [], recorders: [],
     // One upload that has not been confirmed yet keeps its own ID here, so sending it again asks the course
     // for the *same* upload instead of a new one, and the file it already saved is reused rather than
     // copied. Kept until that upload is confirmed; a different file is a different upload.
@@ -120,6 +123,11 @@
     if (q.kind === 'file') {
       return `<div class="zp-q zp-file" data-q="${q.id}" data-no-print><div class="zp-prompt-line">${number(q)}${q.prompt}${optionalTag(q)}</div><ul class="zp-files" data-files="${q.id}"></ul>${readOnly() ? '' : `<label class="zp-drop"><input type="file" multiple accept="image/*,application/pdf,.pdf,.heic,.heif" data-pick="${q.id}"><strong>Choose photos or a PDF</strong><span>Up to ${maxFiles()} files · 12 MB per file</span></label><div class="zp-progress" hidden><i></i></div>`}<p class="zp-msg" data-filemsg="${q.id}" role="status"></p></div>`;
     }
+    if (q.kind === 'speak') {
+      // The recorder draws its own prompt line and panel in here once the page is drawn (mountRecorders). Until
+      // then, or on a page without recorder.js, the question is shown with a note; the panel never prints.
+      return `<div class="zp-q zp-speak" data-q="${q.id}" data-speak="${q.id}"><div class="zp-prompt-line">${number(q)}${q.prompt}${optionalTag(q)}</div><div class="zp-speak-panel" data-no-print><p class="zp-note">Reload this page to record or hear your answer.</p></div></div>`;
+    }
     return `<div class="zp-q" data-q="${q.id}"><p class="zp-note">This question type is not available on this page yet.</p></div>`;
   }
 
@@ -150,8 +158,9 @@
     const isSecond = (b) => b.type === 'q' && groups(S.task).some((g) => g.indexOf(b.id) > 0);
     // New work hands in paper pages through the one task-level panel; a question's own upload box shows only
     // on work submitted that way before (its files stay part of that receipt).
-    // (Only when the backend offers the panel, so the site and the backend can be released in either order.)
-    const hidden = (b) => b.type === 'q' && b.kind === 'file' && Boolean(S.task.paperUpload) && !(S.submission && hasAnswer(S.responses[b.id]));
+    // (Only when the backend offers the panel as a paper route, so the site and the backend can be released in
+    // either order; a task with a speaking question has no paper route and keeps its own upload boxes.)
+    const hidden = (b) => b.type === 'q' && b.kind === 'file' && paperAllowed() && !(S.submission && hasAnswer(S.responses[b.id]));
     // A passage is drawn in the texts pane instead. Its own place keeps a hidden slot, so printing puts each
     // passage back exactly where the paper has it, however many passages a mock interleaves (print.js).
     const isText = (b) => texts.indexOf(b) >= 0;
@@ -231,6 +240,7 @@
       if (q.kind === 'long') updateCount(q.id);
       if (q.kind === 'file') drawFiles(q.id);
     });
+    mountRecorders();
     mountAudio();
     mountPages();
     if (S.submission) showFeedback();
@@ -261,7 +271,9 @@
   // same panel is the receipt: the files that belong to this attempt, in order, each one can be opened.
   function renderHandin() {
     const area = app.querySelector('[data-handin]');
-    if (!S.task.paperUpload || (S.submission && !paperFiles().length) || (S.blocked && !paperFiles().length)) { area.innerHTML = ''; return; }
+    // No panel and no paper/online switch where the task offers no paper route (a task with a speaking
+    // question: paperMode false; an older course version: no paperUpload at all), unless pages were already attached.
+    if (!S.task.paperUpload || (!paperAllowed() && !paperFiles().length) || (S.submission && !paperFiles().length) || (S.blocked && !paperFiles().length)) { area.innerHTML = ''; return; }
     const fileBox = questionHtml({ id: PAPER, kind: 'file', prompt: 'Your paper pages, in order (photos or one PDF):', optional: false });
     const choice = paperAllowed()
       ? `<div class="zp-method" role="radiogroup" aria-label="How to hand in"><label><input type="radio" name="answer-method" value="online"${paperMode() ? '' : ' checked'}${readOnly() ? ' disabled' : ''}> Answer on this page</label><label><input type="radio" name="answer-method" value="paper"${paperMode() ? ' checked' : ''}${readOnly() ? ' disabled' : ''}> Hand in on paper</label></div><p class="zp-note">Print the questions with <b>Print questions / PDF</b>, write on the paper, then take a clear photo of each page (or scan them into one PDF). You do not need to type your answers again.</p>`
@@ -413,8 +425,9 @@
     const message = app.querySelector('[data-sendmsg]');
     const button = app.querySelector('[data-send]');
     if (S.submitting) return;
-    if (S.uploads || S.batches) { message.textContent = 'Wait for the upload to finish first.'; message.className = 'zp-msg error'; return; }
+    if (S.uploads || S.batches || S.recorders.some((r) => r.isBusy())) { message.textContent = S.recorders.some((r) => r.isBusy()) ? 'Wait for the recording or upload to finish first.' : 'Wait for the upload to finish first.'; message.className = 'zp-msg error'; return; }
     if (Object.keys(S.uploadErrors).length) { message.textContent = 'Some selected files were not uploaded. Retry them or keep only the files listed.'; message.className = 'zp-msg error'; return; }
+    if (S.recorders.some((r) => r.hasUnsaved())) { message.textContent = 'One recording has not been saved yet. Press “Save this answer again” first.'; message.className = 'zp-msg error'; return; }
     const onPaper = paperMode();
     const missing = onPaper ? 0 : units().length - answered();
     if (onPaper ? !paperFiles().length : !items().some((q) => hasAnswer(S.responses[q.id]))) {
@@ -437,7 +450,10 @@
       const sent = JSON.parse(JSON.stringify(onPaper ? { [PAPER]: S.responses[PAPER] } : S.responses));
       const receipt = await A.post('submitTask', { taskId, saveId: S.saveId, submissionId: S.submissionId, resetVersion: S.control.resetVersion, responses: sent, secondsUsed: S.secondsUsed, submissionOrigin });
       for (const [id, value] of Object.entries(sent)) {
-        if (value && value.files && JSON.stringify(value.files) !== JSON.stringify(((receipt.responses || {})[id] || {}).files || [])) throw new Error('The receipt did not confirm every attachment. Reload to check the submitted version before retrying.');
+        const got = (receipt.responses || {})[id] || {};
+        if (value && value.files && JSON.stringify(value.files) !== JSON.stringify(got.files || [])) throw new Error('The receipt did not confirm every attachment. Reload to check the submitted version before retrying.');
+        // A spoken answer is one recording or audio file: the receipt names the same one.
+        if (value && value.file && got.file !== value.file) throw new Error('The receipt did not confirm every recording. Reload to check the submitted version before retrying.');
       }
       S.dirty = false;
       S.submitting = false;
@@ -513,8 +529,10 @@
       changed();
     }
   });
+  // Leaving while a file or a recording is still being sent, while recording, or with a take that has not been
+  // saved yet (it lives only in this page) asks first.
   window.addEventListener('beforeunload', (event) => {
-    if (S.uploads || S.batches) { event.preventDefault(); event.returnValue = ''; }
+    if (S.uploads || S.batches || S.recorders.some((r) => r.isBusy() || r.hasUnsaved())) { event.preventDefault(); event.returnValue = ''; }
   });
 
   // ---------- photos and PDF of handwritten work ----------
@@ -528,7 +546,11 @@
   // case where asking for a new ID would create a second copy of one page, so a failure keeps the ID and
   // the next attempt finishes the same upload. A genuinely different file is a different slot and gets its
   // own ID without any of this.
-  async function sendFile(itemId, blob, type, name, slotKey) {
+  // A speaking take passes `take` ({ kind: 'recorded' | 'uploaded', seconds }); its slotKey is the take's own ID,
+  // so "Save this answer again" is this same upload and recording again is a new one. Photos and PDFs pass none.
+  async function sendFile(itemId, blob, type, name, slotKey, take) {
+    const kind = take && take.kind === 'recorded' ? 'recorded' : 'uploaded';
+    const seconds = Math.max(0, Math.round(Number(take && take.seconds) || 0));
     const slot = slotKey ? `${itemId}|${slotKey}` : '';
     const fileId = (slot && S.pending[slot]) || N.newId('file');
     if (slot && S.pending[slot] !== fileId) { S.pending[slot] = fileId; writeLocal(); }
@@ -542,13 +564,39 @@
     S.uploads += 1;
     try {
       const data = await N.toBase64(blob), submissionOrigin = await N.origin();
-      const result = await A.post('uploadFile', { taskId, itemId, fileId, type, name, kind: 'uploaded', seconds: 0, data, submissionOrigin });
-      S.files[fileId] = { name: result.name || name, mime: type, bytes: result.bytes || blob.size, kind: 'uploaded' };
+      const result = await A.post('uploadFile', { taskId, itemId, fileId, type, name, kind, seconds, data, submissionOrigin });
+      const meta = { name: result.name || name, mime: type, bytes: result.bytes || blob.size, kind };
+      if (take) meta.seconds = seconds;
+      S.files[fileId] = meta;
       // release() belongs to the caller: it runs only once this file is in S.responses and written to this
       // device. Releasing here instead would drop the identity of a file that the answers do not reference
       // yet, and the next attempt would then ask for a second copy of it.
-      return { fileId, release: () => { if (slot) { delete S.pending[slot]; writeLocal(); } } };
+      return { fileId, meta, release: () => { if (slot) { delete S.pending[slot]; writeLocal(); } } };
     } finally { S.uploads -= 1; }
+  }
+
+  // ---------- spoken answers ----------
+
+  // One recorder per speaking question, mounted each time the page is drawn. A read-only page (submitted,
+  // closed, a teacher's view) shows the saved answer with "Listen to my answer"; it plays through loadMedia.
+  function mountRecorders() {
+    S.recorders.forEach((r) => r.destroy());
+    S.recorders = [];
+    if (!window.ZsRecorder) return;
+    app.querySelectorAll('[data-speak]').forEach((box) => {
+      const item = items().find((q) => q.id === box.dataset.speak);
+      if (!item) return;
+      const saved = S.responses[item.id] && S.responses[item.id].file ? S.responses[item.id] : null;
+      S.recorders.push(window.ZsRecorder.mount(box, {
+        item, value: saved, meta: saved ? S.files[saved.file] || null : null, disabled: readOnly(), locked: readOnly,
+        // take.takeId stays the same while one take is being saved, so "Save this answer again" is a retry of
+        // that take; recording again makes a new take with a new ID, which is a new upload.
+        upload: (take) => sendFile(item.id, take.blob, take.type, take.name, take.takeId, { kind: take.kind, seconds: take.seconds }),
+        // The take is attached and written to this device first; only then is its upload identity released.
+        onChange: (next, meta, release) => { S.responses[item.id] = next; changed(); if (release) release(); },
+        playback: (fileId) => N.loadMedia('upload:' + fileId)
+      }));
+    });
   }
 
   function drawFiles(id) {
